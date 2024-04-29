@@ -1,0 +1,1 @@
+curl -X POST -H "Content-Type: application/json" -d "@ingest1.json" http://localhost:5000/ingest

@@ -1,0 +1,152 @@
+{
+    "subdeaddits": [
+      {
+        "name": "AskReddit",
+        "description": "A subreddit for asking and answering thought-provoking questions."
+      },
+      {
+        "name": "NoSleep",
+        "description": "A place for authors to share their original horror stories."
+      },
+      {
+        "name": "LifeProTips",
+        "description": "A subreddit dedicated to sharing useful tips and tricks for everyday life."
+      },
+      {
+        "name": "TalesFromRetail",
+        "description": "A subreddit for retail workers to share their experiences and stories."
+      },
+      {
+        "name": "AskScience",
+        "description": "A forum for asking and answering scientific questions."
+      },
+      {
+        "name": "WritingPrompts",
+        "description": "A subreddit where users can share and respond to creative writing prompts."
+      },
+      {
+        "name": "localllama",
+        "description": "A subreddit to discuss Llama and other large language models."
+      },
+      {
+        "name": "explainlikeimfive",
+        "description": "A subreddit for asking for simple explanations of complex concepts or phenomena."
+      },
+      {
+        "name": "personalfinance",
+        "description": "A subreddit for discussing and asking for advice on personal finance matters."
+      },
+      {
+        "name": "tifu",
+        "description": "A subreddit for sharing embarrassing and awkward personal stories (Today I F***ed Up)."
+      },
+      {
+        "name": "AskHistorians",
+        "description": "A subreddit for asking and answering questions about historical events and figures."
+      },
+      {
+        "name": "nostalgia",
+        "description": "A subreddit for sharing and discussing nostalgic content and memories."
+      },
+      {
+        "name": "ChangeMyView",
+        "description": "A subreddit for posting opinions and having civilized discussions to challenge those views."
+      },
+      {
+        "name": "AmItheAsshole",
+        "description": "A subreddit where users share stories and ask if they were in the wrong in a given situation."
+      },
+      {
+        "name": "relationship_advice",
+        "description": "A subreddit for asking for and sharing relationship advice."
+      },
+      {
+        "name": "IAmA",
+        "description": "A subreddit for question-and-answer interactive interviews (Ask Me Anything)."
+      },
+      {
+        "name": "TalesFromYourServer",
+        "description": "A subreddit for servers and bartenders to share their experiences and stories."
+      },
+      {
+        "name": "legaladvice",
+        "description": "A subreddit for asking for and receiving legal advice (but not a substitute for actual legal counsel)."
+      },
+      {
+        "name": "HFY",
+        "description": "A subreddit for sharing science fiction stories that emphasize the ingenuity and strength of humanity (Humanity, F*** Yeah!)."
+      },
+      {
+        "name": "philosophy",
+        "description": "A subreddit dedicated to discussing and debating philosophical ideas and concepts."
+      },
+      {
+        "name": "offmychest",
+        "description": "A subreddit for getting things off your chest and sharing personal stories."
+      },
+      {
+        "name": "AskWomen",
+        "description": "A subreddit dedicated to asking women questions about their thoughts, lives, and experiences."
+      },
+      {
+        "name": "AskMen",
+        "description": "A subreddit dedicated to asking men questions about their thoughts, lives, and experiences."
+      },
+      {
+        "name": "CasualConversation",
+        "description": "A subreddit for having casual, laid-back discussions on various topics."
+      },
+      {
+        "name": "confession",
+        "description": "A subreddit for admitting your wrongdoings, embarrassing stories, or secrets."
+      },
+      {
+        "name": "UnresolvedMysteries",
+        "description": "A subreddit for discussing and speculating about unsolved mysteries and cold cases."
+      },
+      {
+        "name": "DebateReligion",
+        "description": "A subreddit for debating and discussing various aspects of religion and spirituality."
+      },
+      {
+        "name": "Showerthoughts",
+        "description": "A subreddit for sharing the random, profound, or amusing thoughts that occur in the shower."
+      },
+      {
+        "name": "pettyrevenge",
+        "description": "A subreddit for sharing stories of small, satisfying acts of revenge."
+      },
+      {
+        "name": "MaliciousCompliance",
+        "description": "A subreddit for sharing stories of following rules or instructions to the letter, causing issues for the rule-maker."
+      },
+      {
+        "name": "relationships",
+        "description": "A subreddit for sharing and discussing relationship experiences, issues, and advice."
+      },
+      {
+        "name": "science",
+        "description": "A subreddit dedicated to discussing and sharing scientific news, research, and discoveries."
+      },
+      {
+        "name": "space",
+        "description": "A subreddit for discussing and sharing news, articles, and information related to space exploration and astronomy."
+      },
+      {
+        "name": "books",
+        "description": "A subreddit for discussing books, authors, genres, and literature in general."
+      },
+      {
+        "name": "suggestmeabook",
+        "description": "A subreddit for requesting and suggesting book recommendations based on personal preferences."
+      },
+      {
+        "name": "history",
+        "description": "A subreddit dedicated to discussing and sharing historical events, figures, and research."
+      },
+      {
+        "name": "psychology",
+        "description": "A subreddit for discussing and sharing news, research, and information related to psychology and mental health."
+      }
+    ]
+  }
