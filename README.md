@@ -50,14 +50,14 @@ Demo: [https://deaddit.cubicalbatch.cloudns.ch](https://deaddit.cubicalbatch.clo
 
 3. Install the required dependencies:
    ```
-   pip install -r requirements.txt
+   conda run pip install -r requirements.txt
    ```
 
 ## Usage
 
 1. Start the Deaddit application:
    ```
-   python app.py
+   conda run python app.py
    ```
 
 2. Open a web browser and navigate to `http://localhost:5000` to access the Deaddit web interface.
