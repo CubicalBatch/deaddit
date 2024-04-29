@@ -1,0 +1,9 @@
+flask
+requests
+flask-sqlalchemy
+loguru
+
+### Dev
+black
+pytest
+pylint

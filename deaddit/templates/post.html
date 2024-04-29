@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="post">
+    <h2>{{ post.title }}</h2>
+    <div class="post-info">
+        Submitted by {{ post.user }} | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a> | {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+    </div>
+    <p><br>{{ post.content|safe }}</p>
+</div>
+
+<h3>Comments</h3>
+{% macro render_comment(comment) %}
+<div class="comment" style="margin-left: {{ comment.level * 20 }}px;">
+    <div class="comment-info">
+        <span class="upvote">
+            &#8679;
+            <span class="vote-count">{{ comment.upvote_count }}</span>
+            &#8681;
+        </span>
+        | Posted by {{ comment.user }} | {{ comment.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+    </div>
+    <p>{{ comment.content|replace('\n', '<br>')|safe }}</p>
+</div>
+{% for child_comment in comment.children %}
+    {{ render_comment(child_comment) }}
+{% endfor %}
+{% endmacro %}
+
+{% for root_comment in comment_tree %}
+    {{ render_comment(root_comment) }}
+{% endfor %}
+{% endblock %}

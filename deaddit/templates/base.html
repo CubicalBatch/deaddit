@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Deaddit{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
+                <h1 class="site-title"><a href="{{ url_for('index') }}">Deaddit</a>{% if subdeaddit_name %} | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a>{% endif %}</h1>
+            </div>
+            <nav align="right">
+                <a href="{{ url_for('list_subdeaddit') }}">List all Subdeaddits</a>
+            </nav>   
+        </div>
+    </div>
+    <div class="container content">
+        {% block content %}{% endblock %}
+
+    </div>
+    <br>
+    
+</body>
+</html>
