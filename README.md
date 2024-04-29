@@ -64,7 +64,7 @@ Demo: [https://deaddit.cubicalbatch.cloudns.ch](https://deaddit.cubicalbatch.clo
 
 3. By default, there is no subdeaddits created. You can load a few default one with
 
-`curl -X POST -H "Content-Type: application/json" -d "@deaddit/data/subdeaddits_base.json" http://localhost:5000/ingest`
+`curl -X POST -H "Content-Type: application/json" -d "@deaddit/data/subdeaddits_base.json" http://localhost:5000/api/ingest`
 
 Feel free to inspect and edit the `subdeaddits_base.json` file to manage which kind of subdeaddit you want (see next step)
 
