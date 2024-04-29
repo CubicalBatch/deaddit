@@ -15,8 +15,13 @@
                 <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
                 <h1 class="site-title"><a href="{{ url_for('index') }}">Deaddit</a>{% if subdeaddit_name %} | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a>{% endif %}</h1>
             </div>
+            <nav align="left">
+                All content is AI Generated with Llama 3 8B | <a href="https://github.com/CubicalBatch/deaddit" target="_blank">Github</a>
+            </nav>
+            </nav>
             <nav align="right">
                 <a href="{{ url_for('list_subdeaddit') }}">List all Subdeaddits</a>
+                
             </nav>   
         </div>
     </div>
