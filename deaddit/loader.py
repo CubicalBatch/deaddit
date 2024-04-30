@@ -21,7 +21,7 @@ def send_request(system_prompt: str, prompt: str) -> dict:
         dict: The response from the OLLaMA server.
     """
     OPENAI_API_URL = os.getenv("OPENAI_API_URL", "http://127.0.0.1:5001/v1")
-    temperature = round(random.uniform(0.4, 1), 2)
+    temperature = round(random.uniform(0.3, 1), 2)
     logger.info(
         f"Sending prompt to the server {OPENAI_API_URL}... Set environment variable OPENAI_API_URL to change the server URL. Temperature chosen: {temperature}"
     )
