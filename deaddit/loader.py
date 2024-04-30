@@ -248,10 +248,10 @@ def create_comment(post_id: str = "") -> dict:
     comment_count = post_data["comment_count"]
     if comment_count <= 3:
         choices = ["comment", "bad_comment"]
-        weights = [80, 20]
+        weights = [85, 15]
     else:
         choices = ["comment", "reply", "bad_reply", "bad_comment"]
-        weights = [40, 40, 10, 10]
+        weights = [43, 43, 7, 7]
 
     response_type = random.choices(choices, weights=weights, k=1)[0]
     logger.info(f"Response type picked: {response_type}")
