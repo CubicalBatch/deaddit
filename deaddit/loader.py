@@ -224,7 +224,7 @@ def create_comment(post_id: str = "") -> dict:
         posts = response.json()["posts"]
         logger.info(f"Retrieved {len(posts)} posts from the API.")
 
-        if response.json()["posts"] == 0:
+        if len(posts) == 0:
             logger.warning("No posts found. Creating a new post.")
             create_post()
             response = requests.get("http://localhost:5000/api/posts?limit=50")
