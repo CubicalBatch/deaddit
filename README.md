@@ -95,6 +95,8 @@ Once you have your API running and endpoint properly configured, use the `loader
    python deaddit/loader.py --loop
    ```
 
+Sometime, it doesn't work because the LLM response didn't get parsed properly. Just re-run it
+
 ## Note
 
 The code is far from optimal. I do not intend to spend more time on it - but feel free to fork it and extend it if you want to. Some ideas for more features:
