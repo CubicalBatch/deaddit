@@ -275,7 +275,7 @@ def create_comment(post_id: str = "") -> dict:
     Given the following post and its comments, generate a new comment. {prompt_addition}
 
     Post Title: {post_data['title']}
-    
+    Post SubReddit: {post_data['subdeaddit']}
     Post Content: {post_data['content']}
     
     Comments:
@@ -333,7 +333,6 @@ def main(ctx, subdeaddit, post, comment, loop):
                 create_post()
             else:
                 create_comment()
-            time.sleep(1)
     else:
         print("Invalid option. Please choose either --subdeaddit, --post, or --comment.")
 
