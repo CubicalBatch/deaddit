@@ -8,6 +8,7 @@ import time
 from loguru import logger
 import os
 
+
 def send_request(system_prompt: str, prompt: str) -> dict:
     """
     Send a request to the local OLLaMA server.
@@ -20,7 +21,9 @@ def send_request(system_prompt: str, prompt: str) -> dict:
         dict: The response from the OLLaMA server.
     """
     OPENAI_API_URL = os.getenv("OPENAI_API_URL", "http://127.0.0.1:5001/v1")
-    logger.info(f"Sending prompt to the server {OPENAI_API_URL}... Set environment variable OPENAI_API_URL to change the server URL.")
+    logger.info(
+        f"Sending prompt to the server {OPENAI_API_URL}... Set environment variable OPENAI_API_URL to change the server URL."
+    )
     # Set up the OpenAI client with the local OLLaMA server URL
     client = OpenAI(base_url=OPENAI_API_URL, api_key="not needed")
     response = client.chat.completions.create(
@@ -51,7 +54,7 @@ def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict
     if generated_text[-1] != "}":
         generated_text += "}"
     logger.info(f"Received {generated_text}")
-    
+
     json_data = None
     try:
         json_data = json.loads(generated_text)
@@ -63,7 +66,7 @@ def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict
             json_data = json.loads(generated_text[firstValue:lastValue])
         except:
             pass
-                
+
     if not json_data:
         logger.warning("Failed to parse JSON data from the API response.")
         return {}
@@ -73,7 +76,7 @@ def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict
     else:
         data = json_data
     logger.info("Parsed JSON data from the API response.")
-    
+
     if subdeaddit_name != "":
         data["subdeaddit"] = subdeaddit_name
     logger.info(f"Parsed {data}")
@@ -220,12 +223,16 @@ def create_comment(post_id: str = "") -> dict:
 
         posts = response.json()["posts"]
         logger.info(f"Retrieved {len(posts)} posts from the API.")
-        
+
+        if response.json()["posts"] == 0:
+            logger.warning("No posts found. Creating a new post.")
+            create_post()
+            response = requests.get("http://localhost:5000/api/posts?limit=50")
+            posts = response.json()["posts"]
+
         post_id = random.choice(posts)["id"]
         post_data = next((post for post in posts if post["id"] == post_id), None)
         logger.info(f"Randomly selected post ID: {post_id}: ({post_data['subdeaddit']}) {post_data['title']}")
-        
-        
 
     # Query localhost:5000/api/post with the post ID to get the post information
     response = requests.get(f"http://localhost:5000/api/post/{post_id}")
@@ -254,10 +261,8 @@ def create_comment(post_id: str = "") -> dict:
         prompt_addition = """Respond to an existing comment. Set the parent_id as the id of the comment you are responding to.
         For example, if you are replying with a comment with an id of 123, set the parent_id as "123". DO NOT LEAVE THE PARENT_ID EMPTY. SET THE PARENT_ID"""
     elif response_type == "bad_reply":
-        prompt_addition = (
-            """Respond to an existing comment. but make it a bad or mean response, assign it a negative upvote count. Set the parent_id as the id of the comment you are responding to.
+        prompt_addition = """Respond to an existing comment. but make it a bad or mean response, assign it a negative upvote count. Set the parent_id as the id of the comment you are responding to.
             For example, if you are replying with a comment with an id of 123, set the parent_id as "123". DO NOT LEAVE THE PARENT_ID EMPTY. SET THE PARENT_ID"""
-        )
     elif response_type == "bad_comment":
         prompt_addition = (
             "Respond to the main post. Make it a bad, mean or low-effort comment, assign it a negative upvote count."
@@ -316,11 +321,11 @@ def create_comment(post_id: str = "") -> dict:
 def main(ctx, subdeaddit, post, comment, loop):
     if subdeaddit:
         create_subdeaddit()
-    if post:
+    elif post:
         create_post()
-    if comment:
+    elif comment:
         create_comment()
-    if loop:
+    elif loop:
         while True:
             logger.info("Loop enabled. 5% chance of creating a post, 95% chance of creating a comment.")
             if random.random() < 0.05:
@@ -329,12 +334,8 @@ def main(ctx, subdeaddit, post, comment, loop):
                 create_comment()
             time.sleep(1)
     else:
-        logger.info("No flag specified. 5% chance of creating a post, 95% chance of creating a comment.")
-        if random.random() < 0.05:
-            create_post()
-        else:
-            create_comment()
-        
+        print("Invalid option. Please choose either --subdeaddit, --post, or --comment.")
+
 
 if __name__ == "__main__":
     main()
