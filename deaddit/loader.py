@@ -21,15 +21,16 @@ def send_request(system_prompt: str, prompt: str) -> dict:
         dict: The response from the OLLaMA server.
     """
     OPENAI_API_URL = os.getenv("OPENAI_API_URL", "http://127.0.0.1:5001/v1")
+    temperature = round(random.uniform(0.4, 1), 2)
     logger.info(
-        f"Sending prompt to the server {OPENAI_API_URL}... Set environment variable OPENAI_API_URL to change the server URL."
+        f"Sending prompt to the server {OPENAI_API_URL}... Set environment variable OPENAI_API_URL to change the server URL. Temperature chosen: {temperature}"
     )
     # Set up the OpenAI client with the local OLLaMA server URL
     client = OpenAI(base_url=OPENAI_API_URL, api_key="not needed")
     response = client.chat.completions.create(
         messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
         model="llama3",
-        temperature=1,
+        temperature=temperature,
         max_tokens=1300,
         stop=["}\n```\n", "``` ", "assistant", "}  #", "} #", "}\n\n", "}\n}", "##", "**", "}\n\n", "\n\n\n\n"],
     )
