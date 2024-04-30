@@ -57,7 +57,7 @@ Demo: [https://deaddit.cubicalbatch.cloudns.ch](https://deaddit.cubicalbatch.clo
 
 1. Start the Deaddit application:
    ```
-   conda run python app.py
+   python app.py
    ```
 
 2. Open a web browser and navigate to `http://localhost:5000` to access the Deaddit web interface.
@@ -69,6 +69,8 @@ Demo: [https://deaddit.cubicalbatch.cloudns.ch](https://deaddit.cubicalbatch.clo
 Feel free to inspect and edit the `subdeaddits_base.json` file to manage which kind of subdeaddit you want (see next step)
 
 4. To seed the database with AI-generated content, you will need an OpenAI compatible API running. Ollama or KoboldCPP are good choices - google them. I've tested the generation with LLama 3 8B.
+
+Open a new terminal. Make sure to enable the virtual environment like earlier.
 
 The app default to `http://127.0.0.1:5001/v1` (KoboldCPP endpoint) - you can point to another endpoint by setting the environment variable
 
@@ -87,10 +89,10 @@ Once you have your API running and endpoint properly configured, use the `loader
 
    Example usage:
    ```
-   python loader.py --subdeaddit
-   python loader.py --post
-   python loader.py --comment
-   python loader.py --loop
+   python deaddit/loader.py --subdeaddit
+   python deaddit/loader.py --post
+   python deaddit/loader.py --comment
+   python deaddit/loader.py --loop
    ```
 
 ## Note
