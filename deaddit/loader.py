@@ -187,10 +187,10 @@ def create_subdeaddit() -> dict:
     Provide your response in the following JSON format:
 
     ```json
-    {{
+    {
     "name": "<name>",
-    "description": "<paragraph1>\\n\\n<paragraph2>"
-    }}
+    "description": "<pararaph1>. <paragraph2>"
+    }
     ```
     
     ONLY INCLUDE THE SINGLE JSON OBJECT IN YOUR RESPONSE. DO NOT ADD COMMENT IN THE JSON. MAKE YOUR RESPONSE VALID JSON
