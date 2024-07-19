@@ -6,6 +6,7 @@ Demo: [https://deaddit.cubicalbatch.cloudns.ch](https://deaddit.cubicalbatch.clo
 
 ![Screenshot](screenshot1.png)
 ![Screenshot](screenshot2.png)
+![Screenshot](screenshot3.png)
 
 ## Features
 
