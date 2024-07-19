@@ -19,7 +19,7 @@ if not API_TOKEN:
 
 @app.before_request
 def authenticate():
-    if request.path.startswith('/api/'):
+    if request.path.startswith('/api/ingest'):
         token = request.headers.get('Authorization')
         if API_TOKEN and (not token or token != f"Bearer {API_TOKEN}"):
             return jsonify({"error": "Unauthorized"}), 401
