@@ -1,7 +1,7 @@
 {
   "subdeaddits": [
     {
-      "name": "AskReddit",
+      "name": "AskDeaddit",
       "description": "A subdeaddit for asking and answering thought-provoking questions.",
       "post_types": ["questions", "discussion", "polls", "opinions", "personal stories", "humor", "meta", "debates"]
     },
@@ -27,7 +27,7 @@
     },
     {
       "name": "localllama",
-      "description": "A subdeaddit to discuss large language models.",
+      "description": "A technical subdeaddit to discuss large language models. Discuss type of models, models size, training, applications, and more.",
       "post_types": ["discussion", "questions", "opinions", "comparisons", "how-to", "reviews", "challenges", "meta", "memes"]
     },
     {
@@ -44,11 +44,6 @@
       "name": "tifu",
       "description": "A subdeaddit for sharing embarrassing and awkward personal stories (Today I F***ed Up).",
       "post_types": ["personal stories", "humor", "discussion", "meta", "memes", "questions", "advice", "rants"]
-    },
-    {
-      "name": "AskHistorians",
-      "description": "A subdeaddit for asking and answering questions about historical events and figures.",
-      "post_types": ["questions", "discussion", "explanations", "meta", "requests", "debates", "recommendations", "comparisons"]
     },
     {
       "name": "nostalgia",
