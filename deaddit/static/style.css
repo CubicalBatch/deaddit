@@ -74,7 +74,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: flex-end;
 }
 
 .logo-container {
@@ -102,6 +102,8 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    justify-content: flex-end;
+    margin-bottom: 10px;
 }
 
 .model-selector {
