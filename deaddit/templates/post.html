@@ -4,7 +4,7 @@
 <div class="post">
     <h2>{{ post.title }}</h2>
     <div class="post-info">
-        Submitted by {{ post.user }} | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a> | {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+        Submitted by <a href="{{ url_for('user_profile', username=post.user, models=request.args.getlist('models')) }}">{{ post.user }}</a> | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a> | {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }} <small>(Model: {{ post.model }})</small>
     </div>
     <p><br>{{ post.content|safe }}</p>
 </div>
@@ -18,13 +18,16 @@
             <span class="vote-count">{{ comment.upvote_count }}</span>
             &#8681;
         </span>
-        | Posted by {{ comment.user }} | {{ comment.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+        | Posted by <a href="{{ url_for('user_profile', username=comment.user, models=request.args.getlist('models')) }}">{{ comment.user }}</a> | {{ comment.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+        <small>(Model: {{ comment.model }})</small>
     </div>
     <p>{{ comment.content|replace('\n', '<br>')|safe }}</p>
+    {% if comment.children %}
+        {% for child_comment in comment.children %}
+            {{ render_comment(child_comment) }}
+        {% endfor %}
+    {% endif %}
 </div>
-{% for child_comment in comment.children %}
-    {{ render_comment(child_comment) }}
-{% endfor %}
 {% endmacro %}
 
 {% for root_comment in comment_tree %}

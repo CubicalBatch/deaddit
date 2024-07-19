@@ -6,29 +6,106 @@
     <title>{% block title %}Deaddit{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2-bootstrap-theme/0.1.0-beta.10/select2-bootstrap.min.css" rel="stylesheet" />
+    <style>
+ 
+    </style>
 </head>
 <body>
     <div class="header">
         <div class="container">
-            <div class="logo-container">
-                <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
-                <h1 class="site-title"><a href="{{ url_for('index') }}">Deaddit</a>{% if subdeaddit_name %} | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a>{% endif %}</h1>
+            <div class="header-content">
+                <div class="logo-container">
+                    <div class="logo-title">
+                        <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
+                        <h1 class="site-title">
+                            <a href="{{ url_for('index',models=request.args.getlist('models')) }}">Deaddit</a>
+                            {% if subdeaddit_name %} | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name,models=request.args.getlist('models')) }}">{{ subdeaddit_name }}</a>{% endif %}
+                        </h1>
+                    </div>
+                    <div class="ai-generated">
+                        All content is AI Generated | <a href="https://github.com/CubicalBatch/deaddit" target="_blank">Github</a>
+                    </div>
+                </div>
+                <div class="right-content">
+                    <div class="model-selector">
+                        <select id="models" name="models" multiple class="form-control">
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                        <button id="resetFilter" class="btn btn-secondary btn-sm">Reset</button>
+                    </div>
+                    <div class="nav-links">
+                        <a href="{{ url_for('list_subdeaddit',models=request.args.getlist('models')) }}">List all Subdeaddits</a>
+                        | 
+                        <a href="{{ url_for('list_users',models=request.args.getlist('models')) }}">Users</a>
+                    </div>
+                </div>
             </div>
-            <nav align="left">
-                All content is AI Generated with Llama 3 8B | <a href="https://github.com/CubicalBatch/deaddit" target="_blank">Github</a>
-            </nav>
-            <nav align="right">
-                <a href="{{ url_for('list_subdeaddit') }}">List all Subdeaddits</a>
-                
-            </nav>   
         </div>
     </div>
     <div class="container content">
         {% block content %}{% endblock %}
-
     </div>
     <br>
     
+    <!-- Add jQuery and Select2 JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const modelSelect = $('#models');
+            const resetButton = $('#resetFilter');
+
+            // Initialize Select2
+            modelSelect.select2({
+                theme: 'bootstrap',
+                placeholder: 'Filter by models',
+                allowClear: true,
+                closeOnSelect: false
+            });
+
+            // Function to update URL and reload page
+            function updateModels() {
+                const selectedModels = modelSelect.val() || [];
+                const currentUrl = new URL(window.location.href);
+                const currentModels = currentUrl.searchParams.getAll('models');
+                
+                // Check if there's an actual change in the selection
+                if (JSON.stringify(selectedModels.sort()) !== JSON.stringify(currentModels.sort())) {
+                    currentUrl.searchParams.delete('models');
+                    selectedModels.forEach(model => currentUrl.searchParams.append('models', model));
+                    window.location.href = currentUrl.toString();
+                }
+            }
+
+            // Fetch available models and populate the dropdown
+            fetch('/api/available_models')
+                .then(response => response.json())
+                .then(data => {
+                    data.models.forEach(model => {
+                        const option = new Option(model, model);
+                        modelSelect.append(option);
+                    });
+
+                    // Set selected models based on URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const selectedModels = urlParams.getAll('models');
+                    modelSelect.val(selectedModels).trigger('change.select2');
+                });
+
+            // Apply filter when selection changes
+            modelSelect.on('change', function() {
+                updateModels();
+            });
+
+            // Reset filter
+            resetButton.on('click', function() {
+                modelSelect.val(null).trigger('change');
+            });
+        });
+    </script>
 </body>
 </html>

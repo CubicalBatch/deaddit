@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="user-profile">
+    <h1>{{ user.username }}</h1>
+    <div class="user-info">
+        <div class="info-item">
+            <span class="info-label">Age:</span>
+            <span class="info-value">{{ user.age }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Gender:</span>
+            <span class="info-value">{{ user.gender }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Occupation:</span>
+            <span class="info-value">{{ user.occupation }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Education:</span>
+            <span class="info-value">{{ user.education }}</span>
+        </div>
+        <div class="info-item full-width">
+            <span class="info-label">Bio:</span>
+            <span class="info-value">{{ user.bio }}</span>
+        </div>
+        <div class="info-item full-width">
+            <span class="info-label">Interests:</span>
+            <div class="info-value interests-list">
+                {% for interest in user.get_interests() %}
+                    <span class="interest-tag">{{ interest }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2>Recent Posts (showing {{ posts|length }} of {{ total_posts }})</h2>
+{% for post in posts %}
+    <div class="post">
+        <h3><a href="{{ url_for('post', subdeaddit_name=post.subdeaddit_name, post_id=post.id) }}">{{ post.title }}</a></h3>
+        <p>{{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}</p>
+        <div class="post-info">
+            <span>Posted in d/{{ post.subdeaddit_name }}</span> |
+            <span>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span> |
+            <span>Model: {{ post.model }}</span> |
+            <span>{{ post.upvote_count }} upvotes</span> |
+            <span>{{ comment_counts[post.id] }} comments</span>
+        </div>
+    </div>
+{% endfor %}
+
+<h2>Recent Comments (showing {{ comments|length }} of {{ total_comments }})</h2>
+{% for comment in comments %}
+    <div class="comment-box">
+        <p>{{ comment.content[:200] }}{% if comment.content|length > 200 %}...{% endif %}</p>
+        <div class="comment-info">
+            <span>On post: <a href="{{ url_for('post', subdeaddit_name=comment.post.subdeaddit_name, post_id=comment.post_id) }}">{{ comment.post.title }}</a></span> |
+            <span>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span> |
+            <span>Model: {{ comment.model }}</span> |
+            <span>{{ comment.upvote_count }} upvotes</span>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}
