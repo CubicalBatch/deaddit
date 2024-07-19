@@ -3,21 +3,57 @@
 {% block content %}
     <h2>List of Subdeaddits</h2>
 
-    <ul>
-        {% for subdeaddit in subdeaddits.items %}
-            <li>
-                <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit.name) }}">{{ subdeaddit.name }}</a>
-                - {{ subdeaddit.description }}
-                ({{ subdeaddit.post_count }} posts)
-            </li>
-        {% endfor %}
-    </ul>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Subdeaddit</th>
+                <th>Description</th>
+                <th>Post Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for subdeaddit in subdeaddits.items %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit.name, models=request.args.getlist('models')) }}">
+                            {{ subdeaddit.name }}
+                        </a>
+                    </td>
+                    <td>{{ subdeaddit.description }}</td>
+                    <td>
+                        {% if selected_models %}
+                            {{ subdeaddit.filtered_post_count }} / {{ subdeaddit.total_post_count }}
+                            <span class="text-muted">(filtered / total)</span>
+                        {% else %}
+                            {{ subdeaddit.total_post_count }}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-    {% if subdeaddits.has_prev %}
-        <a href="{{ url_for('list_subdeaddit', page=subdeaddits.prev_num) }}">Previous</a>
-    {% endif %}
+    <nav aria-label="Subdeaddit list navigation">
+        <ul class="pagination justify-content-center">
+            {% if subdeaddits.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('list_subdeaddit', page=subdeaddits.prev_num, models=request.args.getlist('models')) }}">Previous</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                </li>
+            {% endif %}
 
-    {% if subdeaddits.has_next %}
-        <a href="{{ url_for('list_subdeaddit', page=subdeaddits.next_num) }}">Next</a>
-    {% endif %}
+            {% if subdeaddits.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('list_subdeaddit', page=subdeaddits.next_num, models=request.args.getlist('models')) }}">Next</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
 {% endblock %}

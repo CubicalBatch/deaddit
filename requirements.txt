@@ -1,5 +1,4 @@
 flask
-openai
 requests
 flask-sqlalchemy
 loguru
