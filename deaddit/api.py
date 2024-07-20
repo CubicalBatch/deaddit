@@ -337,6 +337,7 @@ def get_users():
             "education": user.education,
             "writing_style": user.writing_style,
             "personality_traits": json.loads(user.personality_traits),
+            "model": json.loads(user.model),
         }
         for user in users
     ]
