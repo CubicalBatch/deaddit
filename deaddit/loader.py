@@ -857,7 +857,7 @@ def ingest_user(user_data: dict):
     """
     ingest_url = f"{API_BASE_URL}/api/ingest/user"
     headers = {"Content-Type": "application/json"}
-    response = requests.post(ingest_url, json=user_data, headers=headers)
+    response = requests.post(ingest_url, json=user_data, headers=API_HEADERS)
 
     if response.status_code == 201:
         logger.info(f"User {user_data['username']} ingested successfully")
