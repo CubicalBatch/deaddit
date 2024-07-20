@@ -145,13 +145,7 @@ def api_subdeaddits():
     Returns:
         A JSON response containing a list of subdeaddits with their names, descriptions, and post_types.
     """
-    subdeaddit_name = request.args.get("name")
-    query = Subdeaddit.query
-
-    if subdeaddit_name:
-        query = query.filter(Subdeaddit.name == subdeaddit_name)
-
-    subdeaddits = query.all()
+    subdeaddits = Subdeaddit.query.all()
     subdeaddit_list = []
     for subdeaddit in subdeaddits:
         subdeaddit_data = {
