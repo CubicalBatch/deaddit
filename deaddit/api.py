@@ -3,9 +3,19 @@ from deaddit import app, db
 from .models import Post, Comment, Subdeaddit, User
 from datetime import datetime, timedelta
 import json
-
 from sqlalchemy import func
+from functools import lru_cache
 
+@lru_cache(maxsize=None)
+def get_available_models():
+    # Query unique models from both Post and Comment tables
+    post_models = db.session.query(Post.model).distinct().all()
+    comment_models = db.session.query(Comment.model).distinct().all()
+
+    # Combine and deduplicate the models
+    all_models = set([model[0] for model in post_models + comment_models if model[0]])
+
+    return list(all_models)
 
 @app.route("/api/ingest", methods=["POST"])
 def ingest():
@@ -343,11 +353,5 @@ def get_users():
 
 @app.route("/api/available_models")
 def available_models():
-    # Query unique models from both Post and Comment tables
-    post_models = db.session.query(Post.model).distinct().all()
-    comment_models = db.session.query(Comment.model).distinct().all()
-
-    # Combine and deduplicate the models
-    all_models = set([model[0] for model in post_models + comment_models if model[0]])
-
-    return jsonify({"models": list(all_models)})
+    models = get_available_models()
+    return jsonify({"models": models})
