@@ -139,6 +139,9 @@ def ingest():
 
     db.session.commit()
 
+    # Clear the cache for get_available_models
+    get_available_models.cache_clear()
+
     return (
         jsonify({"message": "Posts and comments created successfully", "added": added}),
         201,
@@ -324,6 +327,9 @@ def ingest_user():
 
     db.session.add(user)
     db.session.commit()
+
+    # Clear the cache for get_available_models
+    get_available_models.cache_clear()
 
     return (
         jsonify({"message": "User created successfully", "username": user.username}),
