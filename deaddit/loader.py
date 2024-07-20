@@ -193,8 +193,6 @@ def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict
             logger.error(f"Problematic JSON string: {fixed_json_str}")
             return {}
 
-    # Rest of the function remains the same...
-
     # Function to convert keys to lowercase recursively
     def lowercase_keys(obj):
         if isinstance(obj, dict):
@@ -847,6 +845,33 @@ def create_post_with_replies(subdeaddit, min_replies, max_replies, wait):
         logger.error("Failed to create post")
         return False
 
+def get_random_post_from_subdeaddit(subdeaddit_name: str) -> str:
+    """
+    Get a random post ID from a specified subdeaddit.
+
+    Args:
+        subdeaddit_name (str): The name of the subdeaddit to get a post from.
+
+    Returns:
+        str: A random post ID from the specified subdeaddit, or None if no posts are found.
+    """
+    # Query the API to get posts from the specified subdeaddit
+    response = requests.get(f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit_name}&limit=50", headers=API_HEADERS)
+    
+    if response.status_code != 200:
+        logger.error(f"Failed to retrieve posts from subdeaddit '{subdeaddit_name}'.")
+        return None
+
+    posts = response.json()["posts"]
+    logger.info(f"Retrieved {len(posts)} posts from subdeaddit '{subdeaddit_name}'.")
+
+    if not posts:
+        logger.warning(f"No posts found in subdeaddit '{subdeaddit_name}'.")
+        return None
+
+    # Select a random post
+    random_post = random.choice(posts)
+    return random_post["id"]
 
 def ingest_user(user_data: dict):
     """
