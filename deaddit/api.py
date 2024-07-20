@@ -25,7 +25,6 @@ def ingest():
         if not User.query.filter_by(username=user).first():
             return jsonify({"error": f"User '{user}' does not exist"}), 400
 
-        # Rest of the post creation logic...
         title = post_data.get("title")
         content = post_data.get("content")
         upvote_count = post_data.get("upvote_count")
@@ -59,7 +58,6 @@ def ingest():
         if not User.query.filter_by(username=user).first():
             return jsonify({"error": f"User '{user}' does not exist"}), 400
 
-        # Rest of the comment creation logic...
         post_id = comment_data.get("post_id")
         parent_id = comment_data.get("parent_id")
         content = comment_data.get("content")
