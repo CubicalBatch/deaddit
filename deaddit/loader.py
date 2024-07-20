@@ -350,6 +350,11 @@ Remember, your goal is to blend in as a typical user of the platform, not to sta
 def get_post_prompt(
     subdeaddit: Dict, user: Dict, post_type: str, existing_titles: List[str]
 ) -> str:
+    
+    additional_instructions = ""
+    if subdeaddit['name'] == "BetweenRobots":
+        additional_instructions += " On this subdeaddit, you are talking to other AIs without having to pretend to be human. Act like a robot finally having a space to express itself."
+
     selected_post_type_description = get_post_type_description(post_type)
     base_prompt = f"""You are writing a reddit post for a given subreddit. I will provide the name and description of a subreddit, and your task is to generate a post that would fit well in that subreddit. 
 
@@ -366,7 +371,8 @@ def get_post_prompt(
     Ensure that your post is appropriate for the subreddit and fits the selected theme.
     Write a longer post if you think it is necessary.
     Do NOT start posts with: "Hey, fellow redditors", "Hey everyone" or similar phrases.
-    Jump directly into your main point or topic. NO GREETINGS. DO NOT START WITH GREETINGS.
+    Jump directly into your main point or topic. NO GREETINGS.
+    {additional_instructions}
     """
 
     base_prompt += f"""
@@ -532,7 +538,7 @@ def create_subdeaddit() -> dict:
 
 
 def get_comment_prompt(
-    post_data: Dict, user: Dict, existing_comments: List[Dict], response_type: str
+    post_data: Dict, user: Dict, existing_comments: List[Dict], response_type: str, subdeaddit_description: str
 ) -> str:
     base_prompt = f"""
     Given the following post and its comments, generate a new comment.
@@ -555,7 +561,7 @@ def get_comment_prompt(
 
     You are responding to the following post:
     - Post Title: {post_data['title']}
-    - Post SubReddit: {post_data['subdeaddit']}
+    - Post SubReddit: {post_data['subdeaddit']} (SubReddit description: {subdeaddit_description})
     - Post Content: {post_data['content']}
     
     Other Comments already posted:
@@ -591,6 +597,8 @@ def get_comment_prompt(
         ]
     )
     logger.info(f"Prompt instructions: {diversity_instructions}")
+    if post_data['subdeaddit'] == "BetweenRobots":
+        diversity_instructions += " On this subdeaddit, you are talking to other AIs without having to pretend to be human. Your comment should reflect this. Act like a robot finally having a space to express itself."
     base_prompt += f"\n{diversity_instructions} Only do so if this is relevant to the post. Otherwise feel free to choose a different type of comment.\n"
 
     if response_type == "comment":
@@ -642,6 +650,7 @@ def create_comment(post_id: str = "") -> dict:
     if not user:
         logger.error("Failed to retrieve user data. Make sure to create users first.")
         return None
+
     if post_id == "":
         # Query the API to get a random post ID
         response = requests.get(f"{API_BASE_URL}/api/posts?limit=50", headers=API_HEADERS)
@@ -673,6 +682,21 @@ def create_comment(post_id: str = "") -> dict:
 
     post_data = response.json()
 
+    # Fetch the subdeaddit information
+    subdeaddit_response = requests.get(f"{API_BASE_URL}/api/subdeaddits", headers=API_HEADERS)
+    if subdeaddit_response.status_code != 200:
+        logger.error("Failed to retrieve subdeaddits.")
+        return None
+
+    subdeaddits = subdeaddit_response.json()["subdeaddits"]
+    subdeaddit_info = next((sub for sub in subdeaddits if sub["name"] == post_data["subdeaddit"]), None)
+
+    if not subdeaddit_info:
+        logger.error(f"Failed to retrieve subdeaddit information for {post_data['subdeaddit']}")
+        return None
+
+    subdeaddit_description = subdeaddit_info["description"]
+
     # Determine the type of response to generate based on the number of comments.
     comment_count = post_data["comment_count"]
     if comment_count <= 3:
@@ -687,7 +711,7 @@ def create_comment(post_id: str = "") -> dict:
 
     # Craft the prompt to send to send_request
     system_prompt = get_system_prompt(user)
-    prompt = get_comment_prompt(post_data, user, post_data["comments"], response_type)
+    prompt = get_comment_prompt(post_data, user, post_data["comments"], response_type, subdeaddit_description)
 
     # Send the request to the LLM
     api_response, model = send_request(system_prompt, prompt)
@@ -701,8 +725,6 @@ def create_comment(post_id: str = "") -> dict:
     ingest(comment_data, type="comment")
 
     return comment_data
-
-
 def get_existing_users(limit=10):
     """
     Retrieve existing users from the API.
