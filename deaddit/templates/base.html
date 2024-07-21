@@ -105,6 +105,37 @@
             resetButton.on('click', function() {
                 modelSelect.val(null).trigger('change');
             });
+
+            // Night mode toggle
+            function toggleNightMode() {
+                $('body').toggleClass('night-mode');
+                $('.header').toggleClass('night-mode');
+                $('.header a').toggleClass('night-mode');
+                $('.post').toggleClass('night-mode');
+                $('.post-info').toggleClass('night-mode');
+                $('.upvote').toggleClass('night-mode');
+                $('.comment').toggleClass('night-mode');
+                $('.load-more a').toggleClass('night-mode');
+                $('.user-profile h1').toggleClass('night-mode');
+                $('.info-item').toggleClass('night-mode');
+                $('.info-label').toggleClass('night-mode');
+                $('.info-value').toggleClass('night-mode');
+                $('.interest-tag').toggleClass('night-mode');
+            }
+
+            // Add night mode toggle button next to Github link
+            $('.ai-generated').append(' | <a id="nightModeToggle" href="#"><i class="bi bi-sun-fill"></i> Night Mode</a>');
+
+            // Handle night mode toggle
+            $('#nightModeToggle').on('click', function() {
+                toggleNightMode();
+                localStorage.setItem('nightMode', $('body').hasClass('night-mode'));
+            });
+
+            // Check local storage for night mode preference
+            if (localStorage.getItem('nightMode') === 'true') {
+                toggleNightMode();
+            }
         });
     </script>
 </body>
