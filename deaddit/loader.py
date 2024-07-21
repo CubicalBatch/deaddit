@@ -515,7 +515,7 @@ def create_subdeaddit() -> dict:
         - The first paragraph should clearly explain the main topic, theme, or purpose of the subreddit. What is it about? 
         - The second paragraph should highlight what kind of posts and discussions would users find here? Be specific and give examples.
     - post_types: A list of post types that would be common in this subreddit. Choose from the following options (do not invent new types!):
-        questions,discussion,polls,opinions,personal,how to,meta,humor,recommendations,rants,requests,comparisons,challenges,debates,memes,news,reviews,explanations,theories,advice,support,updates,confession,series,creative writing,
+        questions,discussion,polls,opinions,personal,how-to,meta,humor,recommendations,rants,requests,comparisons,challenges,debates,memes,news,reviews,explanations,theories,advice,support,updates,confession,series,creative writing,
 
     Provide your response in the following JSON format:
 
