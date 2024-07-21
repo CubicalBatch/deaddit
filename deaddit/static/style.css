@@ -1,11 +1,22 @@
 body {
     background-color: #f8f9fa;
+    color: #000000;
+}
+
+body.night-mode {
+    background-color: #121212;
+    color: #ffffff;
 }
 
 .header {
     background-color: #ffffff;
     padding: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header.night-mode {
+    background-color: #1e1e1e;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .header h1 {
@@ -15,6 +26,10 @@ body {
 .header a {
     color: #000000;
     text-decoration: none;
+}
+
+.header a.night-mode {
+    color: #ffffff;
 }
 
 .content {
@@ -29,12 +44,21 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.post.night-mode {
+    background-color: #1e1e1e;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
 .post h2 {
     margin-top: 0;
 }
 
 .post-info {
     color: #6c757d;
+}
+
+.post-info.night-mode {
+    color: #a0a0a0;
 }
 
 .upvote {
@@ -46,10 +70,22 @@ body {
     color: #ff4500;
 }
 
+.upvote.night-mode {
+    color: #a0a0a0;
+}
+
+.upvote.night-mode:hover {
+    color: #ff4500;
+}
+
 .comment {
     margin-left: 20px;
     border-left: 2px solid #ccc;
     padding-left: 10px;
+}
+
+.comment.night-mode {
+    border-left-color: #444;
 }
 
 .load-more {
@@ -68,6 +104,14 @@ body {
 
 .load-more a:hover {
     background-color: #0056b3;
+}
+
+.load-more a.night-mode {
+    background-color: #333;
+}
+
+.load-more a.night-mode:hover {
+    background-color: #555;
 }
 
 .header-content {
@@ -162,6 +206,10 @@ body {
     margin-bottom: 20px;
 }
 
+.user-profile h1.night-mode {
+    color: #ffffff;
+}
+
 .user-info {
     display: flex;
     flex-wrap: wrap;
@@ -176,6 +224,11 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.info-item.night-mode {
+    background-color: #1e1e1e;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
 .info-item.full-width {
     flex-basis: 100%;
 }
@@ -186,8 +239,16 @@ body {
     margin-right: 10px;
 }
 
+.info-label.night-mode {
+    color: #a0a0a0;
+}
+
 .info-value {
     color: #333;
+}
+
+.info-value.night-mode {
+    color: #ffffff;
 }
 
 .interests-list {
@@ -203,4 +264,63 @@ body {
     padding: 5px 10px;
     border-radius: 15px;
     font-size: 0.9em;
+}
+
+.interest-tag.night-mode {
+    background-color: #333;
+    color: #ffffff;
+}
+
+/* Night mode overrides for Bootstrap and custom elements */
+.night-mode .table,
+.night-mode .table th,
+.night-mode .table td {
+    color: #e0e0e0;
+    border-color: #444;
+}
+
+.night-mode .table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.night-mode .table-hover tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.075);
+}
+
+.night-mode a,
+.night-mode .table a {
+    color: #4da6ff;
+}
+
+.night-mode a:hover,
+.night-mode .table a:hover {
+    color: #80bfff;
+}
+
+.night-mode .page-link {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+}
+
+.night-mode .page-item.active .page-link {
+    background-color: #4da6ff;
+    border-color: #4da6ff;
+    color: #121212;
+}
+
+.night-mode .page-item.disabled .page-link {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #666;
+}
+
+/* Ensure text inputs and selects are also styled for night mode */
+.night-mode input[type="text"],
+.night-mode input[type="search"],
+.night-mode select,
+.night-mode textarea {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #444;
 }
