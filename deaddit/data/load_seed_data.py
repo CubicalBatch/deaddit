@@ -1,14 +1,16 @@
 import json
 import requests
 import sys
+import os
 
 # Set the API endpoints
 USER_API_ENDPOINT = "http://localhost:5000/api/ingest/user"
 SUBDEADDIT_API_ENDPOINT = "http://localhost:5000/api/ingest"
 
 # Set the paths to your JSON files
-USERS_JSON_FILE = "users.json"
-SUBDEADDITS_JSON_FILE = "subdeaddits_base.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+USERS_JSON_FILE = os.path.join(BASE_DIR, "users.json")
+SUBDEADDITS_JSON_FILE = os.path.join(BASE_DIR, "subdeaddits_base.json")
 
 def ingest_users(json_file):
     # Read the JSON file
