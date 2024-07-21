@@ -911,11 +911,51 @@ def cli(ctx, model):
     ctx.obj["models"] = MODELS
 
 
-@cli.command()
+@click.group()
+@click.option(
+    "--model",
+    multiple=True,
+    help="Model(s) to use for requests. Can be specified multiple times.",
+)
 @click.pass_context
-def subdeaddit(ctx):
-    """Create a new subdeaddit"""
-    create_subdeaddit()
+def cli(ctx, model):
+    global MODELS
+    MODELS = list(model) if model else [os.getenv("OPENAI_MODEL", "llama3")]
+    logger.info(f"Using model(s): {', '.join(MODELS)}")
+    ctx.ensure_object(dict)
+    ctx.obj["models"] = MODELS
+
+@cli.command()
+@click.option("--count", type=int, default=1, help="Number of subdeaddits to create")
+@click.option("--wait", type=int, default=0, help="Wait time in seconds between creations")
+@click.option("--model", help="Specific model to use for this command")
+@click.pass_context
+def subdeaddit(ctx, count, wait, model):
+    """Create new subdeaddit(s)"""
+    models = [model] if model else ctx.obj["models"]
+    for i in range(count):
+        logger.info(f"Creating subdeaddit {i+1}/{count}")
+        MODELS[:] = models  # Temporarily set the model for this creation
+        create_subdeaddit()
+        if i < count - 1 and wait > 0:
+            logger.info(f"Waiting for {wait} seconds before creating the next subdeaddit...")
+            time.sleep(wait)
+
+@cli.command()
+@click.option("--count", type=int, default=1, help="Number of users to create")
+@click.option("--wait", type=int, default=0, help="Wait time in seconds between creations")
+@click.option("--model", help="Specific model to use for this command")
+@click.pass_context
+def user(ctx, count, wait, model):
+    """Create new user(s)"""
+    models = [model] if model else ctx.obj["models"]
+    for i in range(count):
+        logger.info(f"Creating user {i+1}/{count}")
+        MODELS[:] = models  # Temporarily set the model for this creation
+        generate_user()
+        if i < count - 1 and wait > 0:
+            logger.info(f"Waiting for {wait} seconds before creating the next user...")
+            time.sleep(wait)
 
 
 @cli.command()
@@ -977,14 +1017,6 @@ def comment(ctx, post, subdeaddit):
             logger.error(f"No posts found in subdeaddit '{subdeaddit}'")
     else:
         create_comment()
-
-
-@cli.command()
-@click.pass_context
-def user(ctx):
-    """Create a new user"""
-    generate_user()
-
 
 @cli.command()
 @click.option(
