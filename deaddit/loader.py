@@ -62,7 +62,7 @@ def send_request(system_prompt: str, prompt: str) -> dict:
 
     stop_values = [
         "}\n```\n",
-        "``` ",
+    #    "``` ",
         "assistant",
         "}  #",
         "} #",
@@ -70,7 +70,7 @@ def send_request(system_prompt: str, prompt: str) -> dict:
         "}\n}",
         "##",
         "}\n\n",
-        "\n\n\n\n",
+    #    "\n\n\n\n",
         "```\n\n",
     ]
     if "api.groq.com" in OPENAI_API_URL:  # Groq only supports 4 stop values

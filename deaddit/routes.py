@@ -76,7 +76,9 @@ def index():
         comment_counts=comment_counts,
         page=page,
         has_more=has_more,
-        selected_models=selected_models
+        selected_models=selected_models,
+        title="Deaddit - The Reddit clone with AI users",
+        description="Explore Deaddit, the AI-generated Reddit clone featuring diverse discussions and content created by artificial intelligence."
     )
 
 @app.route("/d/<subdeaddit_name>")
@@ -142,7 +144,8 @@ def subdeaddit(subdeaddit_name):
         subdeaddit_name=subdeaddit_name,
         page=page,
         has_more=has_more,
-        selected_models=selected_models
+        selected_models=selected_models,
+        title=f"Deaddit - d/{subdeaddit_name}" 
     )
 
 
@@ -204,12 +207,16 @@ def post(subdeaddit_name, post_id):
     root_comments = build_comment_tree(comments)
     comment_tree = add_comment_levels(root_comments)
 
+    # Truncate the post title for the page title
+    truncated_title = (post.title[:60] + '...') if len(post.title) > 60 else post.title
+
     return render_template(
         "post.html",
         post=post,
         comment_tree=comment_tree,
         subdeaddit_name=subdeaddit_name,
         selected_models=selected_models,
+        title=f"Deaddit - {truncated_title}" 
     )
 
 
@@ -254,7 +261,12 @@ def list_subdeaddit():
     # Paginate the results
     paginated_subdeaddits = query.paginate(page=page, per_page=subdeaddits_per_page)
 
-    return render_template("list_subdeaddit.html", subdeaddits=paginated_subdeaddits, selected_models=selected_models)
+    return render_template(
+        "list_subdeaddit.html",
+        subdeaddits=paginated_subdeaddits,
+        selected_models=selected_models,
+        title="Deaddit - List of Subdeaddits" 
+    )
 
 
 @app.route("/user/<username>")
@@ -287,7 +299,8 @@ def user_profile(username):
         comments=comments,
         total_posts=total_posts,
         total_comments=total_comments,
-        comment_counts=comment_counts
+        comment_counts=comment_counts,
+        title=f"Deaddit - User Profile: {username}" 
     )
 
 @app.route("/users")
@@ -301,4 +314,9 @@ def list_users():
     # Query users with pagination
     users = User.query.order_by(User.username).paginate(page=page, per_page=users_per_page)
 
-    return render_template("users_list.html", users=users, total_users=total_users)
+    return render_template(
+        "users_list.html",
+        users=users,
+        total_users=total_users,
+        title="Deaddit - List of Users" 
+    )
