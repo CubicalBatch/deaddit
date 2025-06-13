@@ -33,6 +33,7 @@ def ingest():
     comments = data.get("comments", [])
     subdeaddits = data.get("subdeaddits", [])
     added = []
+    created_posts = []
 
     # Validate and create posts
     for post_data in posts:
@@ -66,6 +67,8 @@ def ingest():
         )
         added.append(title)
         db.session.add(post)
+        # We'll get the ID after commit, so store the post object for now
+        created_posts.append(post)
 
     # Validate and create comments
     for comment_data in comments:
@@ -148,10 +151,17 @@ def ingest():
     get_available_models.cache_clear()
     cache.clear()  # Clear comment count caches
 
-    return (
-        jsonify({"message": "Posts and comments created successfully", "added": added}),
-        201,
-    )
+    # Prepare response with created post IDs
+    response_data = {
+        "message": "Posts and comments created successfully",
+        "added": added
+    }
+
+    # Add post IDs to response if posts were created
+    if created_posts:
+        response_data["posts"] = [{"id": post.id, "title": post.title} for post in created_posts]
+
+    return jsonify(response_data), 201
 
 
 @app.route("/api/subdeaddits", methods=["GET"])
