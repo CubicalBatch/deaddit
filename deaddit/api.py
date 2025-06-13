@@ -1,10 +1,14 @@
-from flask import render_template, jsonify, request
-from deaddit import app, db
-from .models import Post, Comment, Subdeaddit, User
-from datetime import datetime, timedelta
 import json
-from sqlalchemy import func
+from datetime import datetime, timedelta
 from functools import lru_cache
+
+from flask import jsonify, request
+from sqlalchemy import func
+
+from deaddit import app, cache, db
+
+from .models import Comment, Post, Subdeaddit, User
+
 
 @lru_cache(maxsize=None)
 def get_available_models():
@@ -13,9 +17,10 @@ def get_available_models():
     comment_models = db.session.query(Comment.model).distinct().all()
 
     # Combine and deduplicate the models
-    all_models = set([model[0] for model in post_models + comment_models if model[0]])
+    all_models = {model[0] for model in post_models + comment_models if model[0]}
 
     return list(all_models)
+
 
 @app.route("/api/ingest", methods=["POST"])
 def ingest():
@@ -139,8 +144,9 @@ def ingest():
 
     db.session.commit()
 
-    # Clear the cache for get_available_models
+    # Clear caches when new content is added
     get_available_models.cache_clear()
+    cache.clear()  # Clear comment count caches
 
     return (
         jsonify({"message": "Posts and comments created successfully", "added": added}),
@@ -185,7 +191,9 @@ def api_posts():
     if subdeaddit_name:
         subdeaddit = Subdeaddit.query.filter_by(name=subdeaddit_name).first()
         if not subdeaddit:
-            return jsonify({"error": f"Subdeaddit '{subdeaddit_name}' does not exist"}), 404
+            return jsonify(
+                {"error": f"Subdeaddit '{subdeaddit_name}' does not exist"}
+            ), 404
         query = query.filter(Post.subdeaddit == subdeaddit)
 
     # Filter by post_type if provided
@@ -226,7 +234,7 @@ def api_posts():
             "post_type": post.post_type,
             "user": post.user,
             "upvote_count": post.upvote_count,
-            "model": post.model
+            "model": post.model,
         }
         post_data.append(post_info)
 
@@ -280,7 +288,7 @@ def format_comment(comment, comment_map):
         "replies": [],
     }
 
-    for reply_id, reply_comment in comment_map.items():
+    for _reply_id, reply_comment in comment_map.items():
         if reply_comment.parent_id == comment.id:
             formatted_comment["replies"].append(
                 format_comment(reply_comment, comment_map)
@@ -328,8 +336,9 @@ def ingest_user():
     db.session.add(user)
     db.session.commit()
 
-    # Clear the cache for get_available_models
+    # Clear caches when new content is added
     get_available_models.cache_clear()
+    cache.clear()  # Clear comment count caches
 
     return (
         jsonify({"message": "User created successfully", "username": user.username}),
@@ -356,6 +365,7 @@ def get_users():
         for user in users
     ]
     return jsonify({"users": user_list})
+
 
 @app.route("/api/available_models")
 def available_models():

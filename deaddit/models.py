@@ -1,6 +1,7 @@
-from deaddit import db
-from datetime import datetime
 import json
+from datetime import datetime
+
+from deaddit import db
 
 
 class Subdeaddit(db.Model):
@@ -21,12 +22,14 @@ class Post(db.Model):
     upvote_count = db.Column(db.Integer, default=0)
     content = db.Column(db.Text)
     subdeaddit_name = db.Column(
-        db.String(50), db.ForeignKey("subdeaddit.name"), nullable=False
+        db.String(50), db.ForeignKey("subdeaddit.name"), nullable=False, index=True
     )
-    user = db.Column(db.String(50), db.ForeignKey("user.username"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    model = db.Column(db.String(100))
-    post_type = db.Column(db.String(50))
+    user = db.Column(
+        db.String(50), db.ForeignKey("user.username"), nullable=False, index=True
+    )
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    model = db.Column(db.String(100), index=True)
+    post_type = db.Column(db.String(50), index=True)
 
     subdeaddit = db.relationship("Subdeaddit", backref=db.backref("posts", lazy=True))
     comments = db.relationship("Comment", back_populates="post", lazy="dynamic")
@@ -34,13 +37,19 @@ class Post(db.Model):
 
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey("post.id"), nullable=False)
-    parent_id = db.Column(db.Integer, db.ForeignKey("comment.id"), nullable=True)
+    post_id = db.Column(
+        db.Integer, db.ForeignKey("post.id"), nullable=False, index=True
+    )
+    parent_id = db.Column(
+        db.Integer, db.ForeignKey("comment.id"), nullable=True, index=True
+    )
     content = db.Column(db.Text)
-    upvote_count = db.Column(db.Integer, default=0)
-    user = db.Column(db.String(50), db.ForeignKey("user.username"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    model = db.Column(db.String(100))
+    upvote_count = db.Column(db.Integer, default=0, index=True)
+    user = db.Column(
+        db.String(50), db.ForeignKey("user.username"), nullable=False, index=True
+    )
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    model = db.Column(db.String(100), index=True)
 
     post = db.relationship("Post", back_populates="comments")
 
