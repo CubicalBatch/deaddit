@@ -7,63 +7,88 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        .sidebar {
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 100;
-            padding: 48px 0 0;
-            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
-        }
-        
-        .sidebar-sticky {
-            position: relative;
-            top: 0;
-            height: calc(100vh - 48px);
-            padding-top: .5rem;
-            overflow-x: hidden;
-            overflow-y: auto;
-        }
-        
         .navbar-brand {
             padding-top: .75rem;
             padding-bottom: .75rem;
         }
         
-        .navbar .form-control {
-            padding: .75rem 1rem;
-            border-width: 0;
-            border-radius: 0;
+        .admin-nav {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            padding: 0.5rem 0;
+            overflow-x: auto;
         }
         
-        .sidebar .nav-link {
+        .admin-nav .nav {
+            flex-wrap: nowrap;
+            min-width: max-content;
+        }
+        
+        .admin-nav .nav-link {
             font-weight: 500;
-            color: #333;
+            color: #495057;
+            padding: 0.75rem 1rem;
+            margin: 0 0.25rem;
+            border-radius: 0.375rem;
+            transition: all 0.15s ease-in-out;
+            white-space: nowrap;
         }
         
-        .sidebar .nav-link .bi {
-            margin-right: 4px;
-            color: #999;
+        .admin-nav .nav-link .bi {
+            margin-right: 6px;
+            color: #6c757d;
         }
         
-        .sidebar .nav-link.active {
+        .admin-nav .nav-link.active {
+            color: #fff;
+            background-color: #007bff;
+        }
+        
+        .admin-nav .nav-link.active .bi {
+            color: #fff;
+        }
+        
+        .admin-nav .nav-link:hover {
+            color: #007bff;
+            background-color: #e9ecef;
+        }
+        
+        .admin-nav .nav-link:hover .bi {
             color: #007bff;
         }
         
-        .sidebar .nav-link:hover .bi,
-        .sidebar .nav-link.active .bi {
-            color: inherit;
-        }
-        
-        .sidebar-heading {
-            font-size: .75rem;
-            text-transform: uppercase;
+        @media (max-width: 768px) {
+            .admin-nav {
+                overflow-x: visible;
+            }
+            
+            .admin-nav .nav {
+                flex-wrap: wrap;
+                justify-content: center;
+                min-width: auto;
+            }
+            
+            .admin-nav .nav-link {
+                padding: 0.6rem;
+                margin: 0.1rem;
+                font-size: 1.1rem;
+                min-width: 44px;
+                text-align: center;
+            }
+            
+            .admin-nav .nav-link .bi {
+                margin-right: 0;
+                display: block;
+            }
+            
+            .admin-nav .nav-link .nav-text {
+                display: none;
+            }
         }
         
         main {
-            margin-left: 240px;
             padding: 20px;
+            margin-top: 0;
         }
         
         .feather {
@@ -91,7 +116,7 @@
 </head>
 <body>
     <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
-        <a class="navbar-brand col-md-3 col-lg-2 mr-0 px-3" href="{{ url_for('admin.dashboard') }}">
+        <a class="navbar-brand px-3" href="{{ url_for('admin.dashboard') }}">
             <i class="bi bi-gear-fill"></i> Deaddit Admin
         </a>
         <ul class="navbar-nav px-3">
@@ -103,58 +128,57 @@
         </ul>
     </nav>
 
-    <div class="container-fluid">
-        <div class="row">
-            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
-                <div class="sidebar-sticky pt-3">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}" 
-                               href="{{ url_for('admin.dashboard') }}">
-                                <i class="bi bi-speedometer2"></i>
-                                Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'admin.generate' %}active{% endif %}" 
-                               href="{{ url_for('admin.generate') }}">
-                                <i class="bi bi-plus-circle"></i>
-                                Generate Content
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint in ['admin.jobs', 'admin.job_detail'] %}active{% endif %}" 
-                               href="{{ url_for('admin.jobs') }}">
-                                <i class="bi bi-list-task"></i>
-                                Jobs
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'admin.content' %}active{% endif %}" 
-                               href="{{ url_for('admin.content') }}">
-                                <i class="bi bi-file-text"></i>
-                                Content
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'admin.analytics' %}active{% endif %}" 
-                               href="{{ url_for('admin.analytics') }}">
-                                <i class="bi bi-graph-up"></i>
-                                Analytics
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}" 
-                               href="{{ url_for('admin.settings') }}">
-                                <i class="bi bi-gear"></i>
-                                Settings
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
+    <nav class="admin-nav">
+        <div class="container-fluid">
+            <ul class="nav nav-pills">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}" 
+                       href="{{ url_for('admin.dashboard') }}">
+                        <i class="bi bi-speedometer2"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.generate' %}active{% endif %}" 
+                       href="{{ url_for('admin.generate') }}">
+                        <i class="bi bi-plus-circle"></i>
+                        <span class="nav-text">Generate Content</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint in ['admin.jobs', 'admin.job_detail'] %}active{% endif %}" 
+                       href="{{ url_for('admin.jobs') }}">
+                        <i class="bi bi-list-task"></i>
+                        <span class="nav-text">Jobs</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.content' %}active{% endif %}" 
+                       href="{{ url_for('admin.content') }}">
+                        <i class="bi bi-file-text"></i>
+                        <span class="nav-text">Content</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.analytics' %}active{% endif %}" 
+                       href="{{ url_for('admin.analytics') }}">
+                        <i class="bi bi-graph-up"></i>
+                        <span class="nav-text">Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}" 
+                       href="{{ url_for('admin.settings') }}">
+                        <i class="bi bi-gear"></i>
+                        <span class="nav-text">Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
 
-            <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-md-4">
+    <div class="container-fluid">
+        <main role="main">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         {% for category, message in messages %}
@@ -166,9 +190,8 @@
                     {% endif %}
                 {% endwith %}
 
-                {% block content %}{% endblock %}
-            </main>
-        </div>
+            {% block content %}{% endblock %}
+        </main>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>

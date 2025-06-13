@@ -4,21 +4,23 @@ Provides web-based UI for job management and content generation.
 """
 
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-from sqlalchemy import desc, func
+
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from loguru import logger
+from sqlalchemy import desc
 
 from deaddit import db
-from deaddit.jobs import create_job, get_job_status, cancel_job, get_queue_stats
+from deaddit.config import Config
+from deaddit.jobs import cancel_job, create_job, get_job_status, get_queue_stats
 from deaddit.models import (
-    Job,
-    JobType,
-    JobStatus,
-    GenerationTemplate,
-    Post,
     Comment,
-    User,
+    GenerationTemplate,
+    Job,
+    JobStatus,
+    JobType,
+    Post,
     Subdeaddit,
+    User,
 )
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -94,8 +96,14 @@ def generate():
     templates = GenerationTemplate.query.all()
     subdeaddits = Subdeaddit.query.all()
 
+    # Check if default data has been loaded
+    default_data_loaded = Config.get('DEFAULT_DATA_LOADED', 'false') == 'true'
+
     return render_template(
-        "admin/generate.html", templates=templates, subdeaddits=subdeaddits
+        "admin/generate.html",
+        templates=templates,
+        subdeaddits=subdeaddits,
+        default_data_loaded=default_data_loaded
     )
 
 
@@ -179,12 +187,14 @@ def generate_post():
 def generate_comment():
     """Create a job to generate comments."""
 
+    count = int(request.form.get("count", 1))
     post_id = request.form.get("post_id")
     subdeaddit = request.form.get("subdeaddit")
     model = request.form.get("model")
+    wait = int(request.form.get("wait", 0))
     priority = int(request.form.get("priority", 5))
 
-    parameters = {}
+    parameters = {"count": count, "wait": wait}
     if post_id:
         parameters["post_id"] = int(post_id)
     if subdeaddit:
@@ -196,7 +206,7 @@ def generate_comment():
         job_type=JobType.CREATE_COMMENT,
         parameters=parameters,
         priority=priority,
-        total_items=1,
+        total_items=count,
     )
 
     flash(f"Comment generation job created (ID: {job.id})", "success")
@@ -247,7 +257,7 @@ def jobs():
 def job_detail(job_id):
     """Job detail page."""
     job = Job.query.get_or_404(job_id)
-    
+
     # Find related jobs (same type, created around the same time)
     time_window = timedelta(hours=24)
     related_jobs = Job.query.filter(
@@ -256,8 +266,8 @@ def job_detail(job_id):
         Job.created_at >= job.created_at - time_window,
         Job.created_at <= job.created_at + time_window
     ).order_by(desc(Job.created_at)).limit(10).all()
-    
-    return render_template("admin/job_detail.html", job=job, related_jobs=related_jobs, 
+
+    return render_template("admin/job_detail.html", job=job, related_jobs=related_jobs,
                          User=User, Post=Post, Comment=Comment, Subdeaddit=Subdeaddit)
 
 
@@ -270,6 +280,27 @@ def cancel_job_route(job_id):
         flash(f"Could not cancel job {job_id}", "error")
 
     return redirect(url_for("admin.job_detail", job_id=job_id))
+
+
+@admin_bp.route("/jobs/<int:job_id>/retry", methods=["POST"])
+def retry_job_route(job_id):
+    """Retry a failed job."""
+    original_job = Job.query.get_or_404(job_id)
+
+    if original_job.status not in [JobStatus.FAILED, JobStatus.CANCELLED]:
+        flash("Only failed or cancelled jobs can be retried", "error")
+        return redirect(url_for("admin.job_detail", job_id=job_id))
+
+    # Create a new job with the same parameters
+    new_job = create_job(
+        job_type=original_job.type,
+        parameters=original_job.parameters,
+        priority=original_job.priority,
+        total_items=original_job.total_items
+    )
+
+    flash(f"Job retried as new job #{new_job.id}", "success")
+    return redirect(url_for("admin.job_detail", job_id=new_job.id))
 
 
 @admin_bp.route("/api/jobs/<int:job_id>/status")
@@ -379,15 +410,17 @@ def analytics():
 def settings():
     """Settings and configuration page."""
 
-    # Get current configuration
-    import os
+    # Get current configuration from database
+    all_settings = Config.get_all_settings()
 
     config = {
-        "openai_api_url": os.getenv("OPENAI_API_URL", "Not set"),
-        "openai_model": os.getenv("OPENAI_MODEL", "Not set"),
-        "api_base_url": os.getenv("API_BASE_URL", "Not set"),
-        "api_token_set": bool(os.getenv("API_TOKEN")),
-        "openai_key_set": bool(os.getenv("OPENAI_KEY")),
+        "openai_api_url": all_settings['OPENAI_API_URL']['value'],
+        "openai_model": all_settings['OPENAI_MODEL']['value'],
+        "api_base_url": all_settings['API_BASE_URL']['value'],
+        "models": all_settings['MODELS']['value'],
+        "api_token_set": all_settings['API_TOKEN']['value'] == '***set***',
+        "openai_key_set": all_settings['OPENAI_KEY']['value'] != 'your_openrouter_api_key' and bool(all_settings['OPENAI_KEY']['value']),
+        "all_settings": all_settings,
     }
 
     return render_template("admin/settings.html", config=config)
@@ -397,10 +430,11 @@ def settings():
 def system_info_api():
     """API endpoint to get system information."""
     import sys
+
+    import apscheduler
     import flask
     import sqlalchemy
-    import apscheduler
-    
+
     return jsonify({
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "flask_version": flask.__version__,
@@ -411,59 +445,36 @@ def system_info_api():
 
 @admin_bp.route("/api/save-config", methods=["POST"])
 def save_config_api():
-    """API endpoint to save configuration to .env file."""
-    import os
-    from pathlib import Path
-    
+    """API endpoint to save configuration to database."""
     try:
         data = request.get_json()
-        
-        # Path to .env file
-        env_file = Path(".env")
-        
-        # Read current .env file or create if it doesn't exist
-        env_vars = {}
-        if env_file.exists():
-            with open(env_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        env_vars[key] = value
-        
-        # Update with new values
+
+        # Save configuration values to database
         if data.get('openai_api_url'):
-            env_vars['OPENAI_API_URL'] = data['openai_api_url']
+            Config.set('OPENAI_API_URL', data['openai_api_url'].rstrip('/'))
         if data.get('openai_key'):
-            env_vars['OPENAI_KEY'] = data['openai_key']
+            Config.set('OPENAI_KEY', data['openai_key'])
         if data.get('openai_model'):
-            env_vars['OPENAI_MODEL'] = data['openai_model']
+            Config.set('OPENAI_MODEL', data['openai_model'])
         if data.get('api_base_url'):
-            env_vars['API_BASE_URL'] = data['api_base_url']
-        
-        # Write back to .env file
-        with open(env_file, 'w') as f:
-            for key, value in env_vars.items():
-                f.write(f"{key}={value}\n")
-        
-        # Update environment variables for current session
-        for key, value in env_vars.items():
-            os.environ[key] = value
-        
+            Config.set('API_BASE_URL', data['api_base_url'].rstrip('/'))
+        if data.get('models'):
+            Config.set('MODELS', data['models'])
+
         # Return updated config
         config = {
-            "openai_api_url": env_vars.get("OPENAI_API_URL", "Not set"),
-            "openai_model": env_vars.get("OPENAI_MODEL", "Not set"),
-            "api_base_url": env_vars.get("API_BASE_URL", "Not set"),
-            "openai_key_set": bool(env_vars.get("OPENAI_KEY")),
+            "openai_api_url": Config.get("OPENAI_API_URL", "Not set"),
+            "openai_model": Config.get("OPENAI_MODEL", "Not set"),
+            "api_base_url": Config.get("API_BASE_URL", "Not set"),
+            "openai_key_set": bool(Config.get("OPENAI_KEY")) and Config.get("OPENAI_KEY") != 'your_openrouter_api_key',
         }
-        
+
         return jsonify({
             "success": True,
-            "message": "Configuration saved successfully",
+            "message": "Configuration saved to database successfully",
             "config": config
         })
-        
+
     except Exception as e:
         return jsonify({
             "success": False,
@@ -474,35 +485,35 @@ def save_config_api():
 @admin_bp.route("/api/test-connection", methods=["POST"])
 def test_connection_api():
     """API endpoint to test AI service connection with custom parameters."""
+
     import requests
-    import os
-    
+
     try:
         data = request.get_json()
         api_url = data.get('api_url')
         api_key = data.get('api_key')
-        
+
         if not api_url:
             return jsonify({
                 "success": False,
                 "message": "API URL is required",
                 "status_code": None
             })
-        
+
         # If no API key provided or masked key, try to use saved environment variable
         if not api_key or api_key == '••••••••••••••••':
-            api_key = os.getenv('OPENAI_KEY')
+            api_key = Config.get('OPENAI_KEY')
             if not api_key:
                 return jsonify({
                     "success": False,
                     "message": "API key is required. Please enter a key or save one in settings first.",
                     "status_code": None
                 })
-        
+
         # Test connection to AI service
         headers = {"Authorization": f"Bearer {api_key}"}
         response = requests.get(f"{api_url.rstrip('/')}/models", headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             return jsonify({
                 "success": True,
@@ -512,10 +523,10 @@ def test_connection_api():
         else:
             return jsonify({
                 "success": False,
-                "message": f"AI service returned an error response",
+                "message": "AI service returned an error response",
                 "status_code": response.status_code
             })
-    
+
     except requests.exceptions.ConnectionError:
         return jsonify({
             "success": False,
@@ -540,42 +551,41 @@ def test_connection_api():
 def load_models_api():
     """API endpoint to load available models from AI service."""
     import requests
-    import os
-    
+
     try:
         data = request.get_json()
         api_url = data.get('api_url')
         api_key = data.get('api_key')
-        
+
         if not api_url:
             return jsonify({
                 "success": False,
                 "message": "API URL is required"
             })
-        
+
         # If no API key provided or masked key, try to use saved environment variable
         if not api_key or api_key == '••••••••••••••••':
-            api_key = os.getenv('OPENAI_KEY')
+            api_key = Config.get('OPENAI_KEY')
             if not api_key:
                 return jsonify({
                     "success": False,
                     "message": "API key is required. Please enter a key or save one in settings first."
                 })
-        
+
         # Get models from AI service
         headers = {"Authorization": f"Bearer {api_key}"}
         response = requests.get(f"{api_url.rstrip('/')}/models", headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             models_data = response.json()
-            
+
             # Extract model names from response
             models = []
             if 'data' in models_data:
                 models = [model.get('id', 'Unknown') for model in models_data['data']]
             elif 'models' in models_data:
                 models = [model.get('id', model.get('name', 'Unknown')) for model in models_data['models']]
-            
+
             return jsonify({
                 "success": True,
                 "models": models,
@@ -586,7 +596,7 @@ def load_models_api():
                 "success": False,
                 "message": f"Failed to load models: HTTP {response.status_code}"
             })
-    
+
     except requests.exceptions.ConnectionError:
         return jsonify({
             "success": False,
@@ -610,22 +620,125 @@ def clear_jobs_api():
     try:
         # Get count of jobs before deletion for reporting
         job_count = Job.query.count()
-        
+
         # Delete all jobs
         db.session.query(Job).delete()
         db.session.commit()
-        
+
         logger.info(f"Cleared {job_count} jobs from history")
-        
+
         return jsonify({
             "success": True,
             "message": f"Successfully cleared {job_count} jobs from history"
         })
-        
+
     except Exception as e:
         db.session.rollback()
         logger.error(f"Failed to clear jobs history: {e}")
         return jsonify({
             "success": False,
             "message": f"Failed to clear jobs history: {str(e)}"
+        })
+
+
+@admin_bp.route("/api/load-default-data", methods=["POST"])
+def load_default_data_api():
+    """API endpoint to load default subdeaddits and users from JSON files."""
+    import json
+    import os
+
+    try:
+        # Get paths to the data files
+        data_dir = os.path.join(os.path.dirname(__file__), 'data')
+        subdeaddits_file = os.path.join(data_dir, 'subdeaddits_base.json')
+        users_file = os.path.join(data_dir, 'users.json')
+
+        subdeaddits_loaded = 0
+        users_loaded = 0
+
+        # Load subdeaddits
+        if os.path.exists(subdeaddits_file):
+            with open(subdeaddits_file) as f:
+                subdeaddits_data = json.load(f)
+
+            for subdeaddit_data in subdeaddits_data.get('subdeaddits', []):
+                # Check if subdeaddit already exists
+                existing = Subdeaddit.query.filter_by(name=subdeaddit_data['name']).first()
+                if not existing:
+                    subdeaddit = Subdeaddit(
+                        name=subdeaddit_data['name'],
+                        description=subdeaddit_data['description']
+                    )
+                    # Use the helper method to properly set post_types as JSON
+                    subdeaddit.set_post_types(subdeaddit_data.get('post_types', []))
+                    db.session.add(subdeaddit)
+                    subdeaddits_loaded += 1
+
+            logger.info(f"Loaded {subdeaddits_loaded} new subdeaddits")
+
+        # Load users (limit to first 50 to avoid overwhelming the system)
+        if os.path.exists(users_file):
+            with open(users_file) as f:
+                users_data = json.load(f)
+
+            for user_data in users_data.get('users', [])[:50]:  # Limit to first 50 users
+                # Check if user already exists
+                existing = User.query.filter_by(username=user_data['username']).first()
+                if not existing:
+                    user = User(
+                        username=user_data['username'],
+                        bio=user_data['bio'],
+                        age=user_data['age'],
+                        gender=user_data['gender'],
+                        education=user_data['education'],
+                        occupation=user_data['occupation'],
+                        interests=json.dumps(user_data['interests']),  # Convert list to JSON string
+                        personality_traits=json.dumps(user_data['personality_traits']),  # Convert list to JSON string
+                        writing_style=user_data['writing_style'],
+                        model=user_data.get('model', 'default')
+                    )
+                    db.session.add(user)
+                    users_loaded += 1
+
+            logger.info(f"Loaded {users_loaded} new users")
+
+        # Commit all changes
+        db.session.commit()
+
+        # Mark default data as loaded
+        Config.set('DEFAULT_DATA_LOADED', 'true')
+
+        return jsonify({
+            "success": True,
+            "message": f"Successfully loaded {subdeaddits_loaded} subdeaddits and {users_loaded} users",
+            "subdeaddits_loaded": subdeaddits_loaded,
+            "users_loaded": users_loaded
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to load default data: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"Failed to load default data: {str(e)}"
+        })
+
+
+@admin_bp.route("/api/hide-default-data", methods=["POST"])
+def hide_default_data_api():
+    """API endpoint to hide the default data section permanently."""
+    try:
+        # Mark default data as loaded to hide the section
+        Config.set('DEFAULT_DATA_LOADED', 'true')
+
+        return jsonify({
+            "success": True,
+            "message": "Default data section will no longer be shown"
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to hide default data section: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"Failed to hide default data section: {str(e)}"
         })

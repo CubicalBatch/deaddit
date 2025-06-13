@@ -20,6 +20,13 @@
                     <i class="bi bi-x-circle"></i> Cancel Job
                 </button>
             </form>
+            {% elif job.status.value in ['failed', 'cancelled'] %}
+            <form method="post" action="{{ url_for('admin.retry_job_route', job_id=job.id) }}" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-outline-warning" 
+                        onclick="return confirm('Are you sure you want to retry this job? This will create a new job with the same parameters.')">
+                    <i class="bi bi-arrow-clockwise"></i> Retry Job
+                </button>
+            </form>
             {% endif %}
             <a href="{{ url_for('admin.jobs') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Jobs
@@ -251,79 +258,6 @@
     </div>
 </div>
 
-<!-- API Requests and Responses -->
-{% if job.result and job.result.api_requests %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-code-square"></i> OpenAI API Requests & Responses
-                    {% if job.result.partial %}
-                    <span class="badge bg-warning ms-2">Partial Results</span>
-                    {% endif %}
-                </h5>
-            </div>
-            <div class="card-body">
-                {% for request in job.result.api_requests %}
-                <div class="mb-4">
-                    <h6>Request {{ loop.index }}{% if request.model_used %} - {{ request.model_used }}{% endif %}</h6>
-                    
-                    <div class="accordion" id="apiAccordion{{ loop.index }}">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="requestHeader{{ loop.index }}">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#requestCollapse{{ loop.index }}">
-                                    <i class="bi bi-arrow-up-circle text-primary me-2"></i> Request Details
-                                </button>
-                            </h2>
-                            <div id="requestCollapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#apiAccordion{{ loop.index }}">
-                                <div class="accordion-body">
-                                    {% if request.request %}
-                                    <div class="mb-3">
-                                        <strong>Model:</strong> <code>{{ request.request.model }}</code>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <strong>System Prompt:</strong>
-                                        <pre class="bg-light p-2 rounded"><code>{{ request.request.system_prompt }}</code></pre>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <strong>User Prompt:</strong>
-                                        <pre class="bg-light p-2 rounded"><code>{{ request.request.prompt }}</code></pre>
-                                    </div>
-                                    {% else %}
-                                    <p class="text-muted">No request details available</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="accordion-item">
-                            <h2 class="accordion-header" id="responseHeader{{ loop.index }}">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#responseCollapse{{ loop.index }}">
-                                    <i class="bi bi-arrow-down-circle text-success me-2"></i> Response
-                                </button>
-                            </h2>
-                            <div id="responseCollapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#apiAccordion{{ loop.index }}">
-                                <div class="accordion-body">
-                                    {% if request.response %}
-                                    <pre class="bg-light p-3 rounded"><code>{{ request.response }}</code></pre>
-                                    {% else %}
-                                    <p class="text-muted">No response available</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% if not loop.last %}<hr>{% endif %}
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 <!-- Generated Content (if available) -->
 {% if job.status.value == 'completed' and job.type.value in ['create_user', 'create_subdeaddit', 'create_post', 'create_comment'] %}
@@ -406,11 +340,11 @@
                                 <tr>
                                     <td>{{ post.id }}</td>
                                     <td>
-                                        <a href="/r/{{ post.subdeaddit.name }}/{{ post.id }}" target="_blank">
+                                        <a href="/d/{{ post.subdeaddit.name }}/{{ post.id }}" target="_blank">
                                             {{ post.title[:50] }}{% if post.title|length > 50 %}...{% endif %}
                                         </a>
                                     </td>
-                                    <td>/r/{{ post.subdeaddit.name }}</td>
+                                    <td>/d/{{ post.subdeaddit.name }}</td>
                                     <td>{{ post.author.username }}</td>
                                     <td>{{ post.upvote_count }}</td>
                                 </tr>
@@ -452,9 +386,9 @@
                                 {% set sub = Subdeaddit.query.filter_by(name=sub_name).first() %}
                                 {% if sub %}
                                 <tr>
-                                    <td>/r/{{ sub.name }}</td>
+                                    <td>/d/{{ sub.name }}</td>
                                     <td>
-                                        <a href="/r/{{ sub.name }}" target="_blank">View</a>
+                                        <a href="/d/{{ sub.name }}" target="_blank">View</a>
                                     </td>
                                     <td>{{ sub.description[:50] }}{% if sub.description|length > 50 %}...{% endif %}</td>
                                     <td>{{ sub.posts|length }}</td>
@@ -501,7 +435,7 @@
                                     <td>{{ comment.id }}</td>
                                     <td>{{ comment.content[:50] }}{% if comment.content|length > 50 %}...{% endif %}</td>
                                     <td>
-                                        <a href="/r/{{ comment.post.subdeaddit.name }}/{{ comment.post.id }}" target="_blank">
+                                        <a href="/d/{{ comment.post.subdeaddit.name }}/{{ comment.post.id }}" target="_blank">
                                             {{ comment.post.title[:30] }}{% if comment.post.title|length > 30 %}...{% endif %}
                                         </a>
                                     </td>
@@ -528,6 +462,80 @@
         </div>
     </div>
 </div>
+
+<!-- API Requests and Responses -->
+{% if job.result and job.result.api_requests %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-code-square"></i> OpenAI API Requests & Responses
+                    {% if job.result.partial %}
+                    <span class="badge bg-warning ms-2">Partial Results</span>
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for request in job.result.api_requests %}
+                <div class="mb-4">
+                    <h6>Request {{ loop.index }}{% if request.model_used %} - {{ request.model_used }}{% endif %}</h6>
+                    
+                    <div class="accordion" id="apiAccordion{{ loop.index }}">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="requestHeader{{ loop.index }}">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#requestCollapse{{ loop.index }}">
+                                    <i class="bi bi-arrow-up-circle text-primary me-2"></i> Request Details
+                                </button>
+                            </h2>
+                            <div id="requestCollapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#apiAccordion{{ loop.index }}">
+                                <div class="accordion-body">
+                                    {% if request.request %}
+                                    <div class="mb-3">
+                                        <strong>Model:</strong> <code>{{ request.request.model }}</code>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <strong>System Prompt:</strong>
+                                        <pre class="bg-light p-2 rounded"><code>{{ request.request.system_prompt }}</code></pre>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <strong>User Prompt:</strong>
+                                        <pre class="bg-light p-2 rounded"><code>{{ request.request.prompt }}</code></pre>
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted">No request details available</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="responseHeader{{ loop.index }}">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#responseCollapse{{ loop.index }}">
+                                    <i class="bi bi-arrow-down-circle text-success me-2"></i> Response
+                                </button>
+                            </h2>
+                            <div id="responseCollapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#apiAccordion{{ loop.index }}">
+                                <div class="accordion-body">
+                                    {% if request.response %}
+                                    <pre class="bg-light p-3 rounded"><code>{{ request.response }}</code></pre>
+                                    {% else %}
+                                    <p class="text-muted">No response available</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% if not loop.last %}<hr>{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endif %}
 
 <!-- Related Jobs -->

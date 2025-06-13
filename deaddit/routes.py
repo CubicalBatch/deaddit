@@ -4,6 +4,7 @@ from sqlalchemy.orm import joinedload
 
 from deaddit import app, db
 
+from .config import Config
 from .models import Comment, Post, Subdeaddit, User
 from .utils import (
     get_comment_counts_bulk,
@@ -14,6 +15,36 @@ from .utils import (
 
 @app.route("/")
 def index():
+    # Check if the application needs initial setup
+    needs_setup = False
+
+    # Check if database has content and configuration is set
+    total_posts = Post.query.count()
+    total_users = User.query.count()
+    total_subdeaddits = Subdeaddit.query.count()
+
+    # Check if core configuration is set
+    openai_key = Config.get("OPENAI_KEY")
+    openai_url = Config.get("OPENAI_API_URL")
+
+    is_configured = (
+        openai_key and openai_key != 'your_openrouter_api_key' and
+        openai_url and openai_url != 'http://localhost/v1'
+    )
+
+    # Show setup message only if database is empty AND configuration is not set
+    if (total_posts == 0 and total_users == 0 and total_subdeaddits == 0) and not is_configured:
+        needs_setup = True
+
+    if needs_setup:
+        return render_template(
+            "setup.html",
+            title="Setup Required - Deaddit",
+            description="Welcome to Deaddit! Initial setup required.",
+            has_content=total_posts > 0 or total_users > 0 or total_subdeaddits > 0,
+            is_configured=is_configured,
+        )
+
     page = request.args.get("page", default=1, type=int)
     posts_per_page = 20
 

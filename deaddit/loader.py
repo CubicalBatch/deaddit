@@ -10,29 +10,35 @@ import click
 import requests
 from loguru import logger
 
-# Default models - can be overridden with OPENAI_MODEL environment variable
+from .config import Config
+
+# Default models - can be overridden with OPENAI_MODEL config setting
 DEFAULT_MODELS = [
-    os.getenv("OPENAI_MODEL", "llama3"),
+    Config.get("OPENAI_MODEL", "llama3"),
     "gpt-3.5-turbo",
     "gpt-4",
     "claude-3-haiku",
     "mistral-7b",
 ]
 
-# Get models from environment or use defaults
-MODELS = os.getenv("MODELS", "").split(",") if os.getenv("MODELS") else DEFAULT_MODELS
+# Get models from config or use defaults
+MODELS = Config.get("MODELS", "").split(",") if Config.get("MODELS") else DEFAULT_MODELS
 # Remove empty strings and strip whitespace
 MODELS = [model.strip() for model in MODELS if model.strip()]
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5000")
+def get_api_base_url():
+    """Get get_api_base_url() dynamically from config."""
+    return Config.get("get_api_base_url()", "http://localhost:5000")
 
-if os.getenv("API_TOKEN"):
-    API_HEADERS = {
-        "Authorization": f"Bearer {os.getenv('API_TOKEN')}",
-        "Content-Type": "application/json",
-    }
-else:
-    API_HEADERS = None
+def get_api_headers():
+    """Get API headers with current API token."""
+    if os.getenv("API_TOKEN"):
+        return {
+            "Authorization": f"Bearer {os.getenv('API_TOKEN')}",
+            "Content-Type": "application/json",
+        }
+    else:
+        return None
 
 
 def select_model():
@@ -44,7 +50,7 @@ def select_model():
     """
     if not MODELS:
         logger.warning("No models configured, falling back to default model")
-        return os.getenv("OPENAI_MODEL", "llama3")
+        return Config.get("OPENAI_MODEL", "llama3")
     return random.choice(MODELS)
 
 
@@ -59,8 +65,8 @@ def send_request(system_prompt: str, prompt: str) -> dict:
     Returns:
         dict: The response from the OLLaMA server.
     """
-    OPENAI_API_URL = os.getenv("OPENAI_API_URL", "http://localhost/v1")
-    OPENAI_KEY = os.getenv("OPENAI_KEY", "your_openrouter_api_key")
+    OPENAI_API_URL = Config.get("OPENAI_API_URL", "http://localhost/v1")
+    OPENAI_KEY = Config.get("OPENAI_KEY", "your_openrouter_api_key")
 
     selected_model = select_model()
 
@@ -279,7 +285,7 @@ def ingest(data: dict, type: str) -> requests.Response:
         logger.error("No data provided to ingest")
         return None
 
-    ingest_url = f"{API_BASE_URL}/api/ingest"
+    ingest_url = f"{get_api_base_url()}/api/ingest"
 
     to_post = {}
     to_post[f"{type}s"] = [data]
@@ -288,7 +294,7 @@ def ingest(data: dict, type: str) -> requests.Response:
 
     try:
         response = requests.post(
-            ingest_url, json=to_post, headers=API_HEADERS, timeout=30
+            ingest_url, json=to_post, headers=get_api_headers(), timeout=30
         )
         logger.info(f"Response received from {ingest_url}")
         logger.info(f"Status code: {response.status_code}")
@@ -306,7 +312,7 @@ def ingest(data: dict, type: str) -> requests.Response:
 def get_random_user():
     try:
         response = requests.get(
-            f"{API_BASE_URL}/api/users", headers=API_HEADERS, timeout=30
+            f"{get_api_base_url()}/api/users", headers=get_api_headers(), timeout=30
         )
         if response.status_code == 401:
             logger.error("Unauthorized. Please set the API_TOKEN environment variable.")
@@ -373,7 +379,7 @@ def get_post_type_description(post_type: str) -> str:
 
 def get_post_by_title(title):
     response = requests.get(
-        f"{API_BASE_URL}/api/posts?limit=1&title={title}", headers=API_HEADERS
+        f"{get_api_base_url()}/api/posts?limit=1&title={title}", headers=get_api_headers()
     )
     if response.status_code == 200:
         posts = response.json()["posts"]
@@ -462,7 +468,7 @@ def create_post(subdeaddit_name: str = "") -> dict:
         return None
 
     # Get the subreddits from API
-    response = requests.get(f"{API_BASE_URL}/api/subdeaddits", headers=API_HEADERS)
+    response = requests.get(f"{get_api_base_url()}/api/subdeaddits", headers=get_api_headers())
     if response.status_code != 200:
         logger.error("Failed to retrieve subdeaddits.")
         return None
@@ -487,8 +493,8 @@ def create_post(subdeaddit_name: str = "") -> dict:
 
     # First, get posts with the same post type
     same_type_posts = requests.get(
-        f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit['name']}&post_type={selected_post_type}&limit=10",
-        headers=API_HEADERS,
+        f"{get_api_base_url()}/api/posts?subdeaddit={subdeaddit['name']}&post_type={selected_post_type}&limit=10",
+        headers=get_api_headers(),
     ).json()["posts"]
 
     existing_titles = [post["title"] for post in same_type_posts]
@@ -497,8 +503,8 @@ def create_post(subdeaddit_name: str = "") -> dict:
     if len(existing_titles) < 10:
         additional_posts_needed = 10 - len(existing_titles)
         additional_posts = requests.get(
-            f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit['name']}&limit={additional_posts_needed}",
-            headers=API_HEADERS,
+            f"{get_api_base_url()}/api/posts?subdeaddit={subdeaddit['name']}&limit={additional_posts_needed}",
+            headers=get_api_headers(),
         ).json()["posts"]
 
         # Add titles from additional posts, avoiding duplicates
@@ -723,7 +729,7 @@ def create_comment(post_id: str = "") -> dict:
     if post_id == "":
         # Query the API to get a random post ID
         response = requests.get(
-            f"{API_BASE_URL}/api/posts?limit=50", headers=API_HEADERS
+            f"{get_api_base_url()}/api/posts?limit=50", headers=get_api_headers()
         )
         if response.status_code != 200:
             logger.error("Failed to retrieve posts.")
@@ -736,7 +742,7 @@ def create_comment(post_id: str = "") -> dict:
             logger.warning("No posts found. Creating a new post.")
             create_post()
             response = requests.get(
-                f"{API_BASE_URL}/api/posts?limit=50", headers=API_HEADERS
+                f"{get_api_base_url()}/api/posts?limit=50", headers=get_api_headers()
             )
             posts = response.json()["posts"]
 
@@ -747,7 +753,7 @@ def create_comment(post_id: str = "") -> dict:
         )
 
     # Query localhost:5000/api/post with the post ID to get the post information
-    response = requests.get(f"{API_BASE_URL}/api/post/{post_id}", headers=API_HEADERS)
+    response = requests.get(f"{get_api_base_url()}/api/post/{post_id}", headers=get_api_headers())
 
     if response.status_code != 200:
         logger.error(f"Failed to retrieve post with ID {post_id}")
@@ -757,7 +763,7 @@ def create_comment(post_id: str = "") -> dict:
 
     # Fetch the subdeaddit information
     subdeaddit_response = requests.get(
-        f"{API_BASE_URL}/api/subdeaddits", headers=API_HEADERS
+        f"{get_api_base_url()}/api/subdeaddits", headers=get_api_headers()
     )
     if subdeaddit_response.status_code != 200:
         logger.error("Failed to retrieve subdeaddits.")
@@ -818,7 +824,7 @@ def get_existing_users(limit=10):
     Returns:
         list: List of dictionaries containing user information.
     """
-    response = requests.get(f"{API_BASE_URL}/api/users", headers=API_HEADERS)
+    response = requests.get(f"{get_api_base_url()}/api/users", headers=get_api_headers())
     if response.status_code != 200:
         logger.error("Failed to retrieve users.")
         return []
@@ -943,8 +949,8 @@ def get_random_post_from_subdeaddit(subdeaddit_name: str) -> str:
     """
     # Query the API to get posts from the specified subdeaddit
     response = requests.get(
-        f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit_name}&limit=50",
-        headers=API_HEADERS,
+        f"{get_api_base_url()}/api/posts?subdeaddit={subdeaddit_name}&limit=50",
+        headers=get_api_headers(),
     )
 
     if response.status_code != 200:
@@ -970,8 +976,8 @@ def ingest_user(user_data: dict):
     Args:
         user_data (dict): The user data to ingest.
     """
-    ingest_url = f"{API_BASE_URL}/api/ingest/user"
-    response = requests.post(ingest_url, json=user_data, headers=API_HEADERS)
+    ingest_url = f"{get_api_base_url()}/api/ingest/user"
+    response = requests.post(ingest_url, json=user_data, headers=get_api_headers())
 
     if response.status_code == 201:
         logger.info(f"User {user_data['username']} ingested successfully")
@@ -991,7 +997,7 @@ def ingest_user(user_data: dict):
 @click.pass_context
 def cli(ctx, model):
     global MODELS
-    MODELS = list(model) if model else [os.getenv("OPENAI_MODEL", "llama3")]
+    MODELS = list(model) if model else [Config.get("OPENAI_MODEL", "llama3")]
     logger.info(f"Using model(s): {', '.join(MODELS)}")
     ctx.ensure_object(dict)
     ctx.obj["models"] = MODELS

@@ -211,132 +211,58 @@
     </div>
 </div>
 
-<!-- Environment Variables Guide -->
+<!-- Database Configuration Status -->
 <div class="row mb-4">
     <div class="col-md-12">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
-                    <i class="bi bi-file-text"></i> Environment Configuration
+                    <i class="bi bi-database"></i> Database Configuration
                 </h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">Configure these environment variables in your <code>.env</code> file:</p>
+                <p class="text-muted">Application settings are now stored in the database. Only API_TOKEN remains as an environment variable for security.</p>
                 
-                <div class="accordion" id="envAccordion">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="requiredHeader">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#requiredCollapse">
-                                Required Settings
-                            </button>
-                        </h2>
-                        <div id="requiredCollapse" class="accordion-collapse collapse show" data-bs-parent="#envAccordion">
-                            <div class="accordion-body">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Variable</th>
-                                            <th>Description</th>
-                                            <th>Example</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><code>OPENAI_API_URL</code></td>
-                                            <td>AI service endpoint URL</td>
-                                            <td><code>http://localhost:11434/v1</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>OPENAI_KEY</code></td>
-                                            <td>API authentication key</td>
-                                            <td><code>your-api-key-here</code></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="optionalHeader">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#optionalCollapse">
-                                Optional Settings
-                            </button>
-                        </h2>
-                        <div id="optionalCollapse" class="accordion-collapse collapse" data-bs-parent="#envAccordion">
-                            <div class="accordion-body">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Variable</th>
-                                            <th>Description</th>
-                                            <th>Default</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><code>OPENAI_MODEL</code></td>
-                                            <td>Default model name</td>
-                                            <td><code>llama3</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>MODELS</code></td>
-                                            <td>Comma-separated list of available models</td>
-                                            <td><code>llama3,gpt-4</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>API_TOKEN</code></td>
-                                            <td>Bearer token for API protection</td>
-                                            <td><em>None (public access)</em></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>API_BASE_URL</code></td>
-                                            <td>Base URL for the application API</td>
-                                            <td><code>http://localhost:5000</code></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="flaskHeader">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flaskCollapse">
-                                Flask Settings
-                            </button>
-                        </h2>
-                        <div id="flaskCollapse" class="accordion-collapse collapse" data-bs-parent="#envAccordion">
-                            <div class="accordion-body">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Variable</th>
-                                            <th>Description</th>
-                                            <th>Default</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><code>FLASK_ENV</code></td>
-                                            <td>Environment mode</td>
-                                            <td><code>development</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>FLASK_DEBUG</code></td>
-                                            <td>Enable debug mode</td>
-                                            <td><code>True</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td><code>SECRET_KEY</code></td>
-                                            <td>Flask session secret key</td>
-                                            <td><code>dev-secret-key</code></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Setting</th>
+                                <th>Current Value</th>
+                                <th>Source</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, setting in config.all_settings.items() %}
+                            <tr>
+                                <td><code>{{ key }}</code></td>
+                                <td>
+                                    {% if key == 'OPENAI_KEY' and setting.value != 'your_openrouter_api_key' and setting.value %}
+                                        <span class="text-muted">***configured***</span>
+                                    {% elif key == 'API_TOKEN' %}
+                                        {{ setting.value }}
+                                    {% else %}
+                                        <code>{{ setting.value if setting.value else '(not set)' }}</code>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if setting.source == 'database' %}primary{% elif setting.source == 'environment' %}warning{% else %}secondary{% endif %}">
+                                        {{ setting.source }}
+                                    </span>
+                                </td>
+                                <td><small class="text-muted">{{ setting.description }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Configuration Migration:</strong> Settings are now stored in the database for easier management. 
+                    You can configure them using the form above. The only setting that remains as an environment variable is 
+                    <code>API_TOKEN</code> for security reasons.
                 </div>
             </div>
         </div>

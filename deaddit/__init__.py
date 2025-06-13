@@ -3,12 +3,11 @@ import os
 
 from flask import Flask, jsonify, request
 from flask_caching import Cache
-from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__, static_folder="static")
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///deaddit.db"
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 
 # Configure caching
 app.config["CACHE_TYPE"] = "simple"  # Use simple in-memory cache for single-user app
@@ -37,10 +36,15 @@ def authenticate():
             return jsonify({"error": "Unauthorized"}), 401
 
 
-from .models import Comment, Post, Subdeaddit
+from .config import Config
+from .models import Comment, Post, Setting, Subdeaddit
 
 with app.app_context():
     db.create_all()
+    # Set SECRET_KEY from config system
+    app.config["SECRET_KEY"] = Config.get("SECRET_KEY")
+    # Initialize default settings if database is empty
+    Config.initialize_defaults()
 
 
 # Error handlers
@@ -63,10 +67,10 @@ def handle_exception(e):
     return jsonify({"error": "An unexpected error occurred"}), 500
 
 
+from . import websocket  # Import WebSocket handlers
+from .admin import admin_bp
 from .api import *
 from .routes import *
-from .admin import admin_bp
-from . import websocket  # Import WebSocket handlers
 
 # Register admin blueprint
 app.register_blueprint(admin_bp)
