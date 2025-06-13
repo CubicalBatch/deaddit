@@ -1,16 +1,17 @@
 import json
 from datetime import datetime, timedelta
-from functools import lru_cache
+from functools import cache as functools_cache
 
 from flask import jsonify, request
 from sqlalchemy import func
 
-from deaddit import app, cache, db
+from deaddit import app, db
+from deaddit import cache as flask_cache
 
 from .models import Comment, Post, Subdeaddit, User
 
 
-@lru_cache(maxsize=None)
+@functools_cache
 def get_available_models():
     # Query unique models from both Post and Comment tables
     post_models = db.session.query(Post.model).distinct().all()
@@ -149,17 +150,19 @@ def ingest():
 
     # Clear caches when new content is added
     get_available_models.cache_clear()
-    cache.clear()  # Clear comment count caches
+    flask_cache.clear()  # Clear comment count caches
 
     # Prepare response with created post IDs
     response_data = {
         "message": "Posts and comments created successfully",
-        "added": added
+        "added": added,
     }
 
     # Add post IDs to response if posts were created
     if created_posts:
-        response_data["posts"] = [{"id": post.id, "title": post.title} for post in created_posts]
+        response_data["posts"] = [
+            {"id": post.id, "title": post.title} for post in created_posts
+        ]
 
     return jsonify(response_data), 201
 
@@ -348,7 +351,7 @@ def ingest_user():
 
     # Clear caches when new content is added
     get_available_models.cache_clear()
-    cache.clear()  # Clear comment count caches
+    flask_cache.clear()  # Clear comment count caches
 
     return (
         jsonify({"message": "User created successfully", "username": user.username}),

@@ -1,6 +1,6 @@
 from flask import render_template, request
 from sqlalchemy import func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import aliased, joinedload
 
 from deaddit import app, db
 
@@ -28,12 +28,16 @@ def index():
     openai_url = Config.get("OPENAI_API_URL")
 
     is_configured = (
-        openai_key and openai_key != 'your_openrouter_api_key' and
-        openai_url and openai_url != 'http://localhost/v1'
+        openai_key
+        and openai_key != "your_openrouter_api_key"
+        and openai_url
+        and openai_url != "http://localhost/v1"
     )
 
     # Show setup message only if database is empty AND configuration is not set
-    if (total_posts == 0 and total_users == 0 and total_subdeaddits == 0) and not is_configured:
+    if (
+        total_posts == 0 and total_users == 0 and total_subdeaddits == 0
+    ) and not is_configured:
         needs_setup = True
 
     if needs_setup:
@@ -222,9 +226,6 @@ def post(subdeaddit_name, post_id):
         selected_models=selected_models,
         title=f"Deaddit - {truncated_title}",
     )
-
-
-from sqlalchemy.orm import aliased
 
 
 @app.route("/list_subdeaddit")

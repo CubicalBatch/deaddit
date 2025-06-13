@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import requests
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -21,31 +21,29 @@ from deaddit.config import Config
 from deaddit.models import Job, JobStatus, JobType
 
 # APScheduler configuration
-jobstores = {
-    'default': MemoryJobStore()
-}
+jobstores = {"default": MemoryJobStore()}
 executors = {
-    'default': ThreadPoolExecutor(max_workers=5),
-    'high_priority': ThreadPoolExecutor(max_workers=3),
-    'low_priority': ThreadPoolExecutor(max_workers=2)
+    "default": ThreadPoolExecutor(max_workers=5),
+    "high_priority": ThreadPoolExecutor(max_workers=3),
+    "low_priority": ThreadPoolExecutor(max_workers=2),
 }
 job_defaults = {
-    'coalesce': False,
-    'max_instances': 1,
-    'misfire_grace_time': 300  # 5 minutes
+    "coalesce": False,
+    "max_instances": 1,
+    "misfire_grace_time": 300,  # 5 minutes
 }
 
 # Global scheduler instance
 scheduler = BackgroundScheduler(
-    jobstores=jobstores,
-    executors=executors,
-    job_defaults=job_defaults
+    jobstores=jobstores, executors=executors, job_defaults=job_defaults
 )
+
 
 # API configuration
 def get_api_base_url():
     """Get API_BASE_URL dynamically from config."""
     return Config.get("API_BASE_URL", "http://localhost:5000")
+
 
 def get_api_headers():
     """Get API headers with current API token."""
@@ -53,6 +51,7 @@ def get_api_headers():
     if os.getenv("API_TOKEN"):
         headers["Authorization"] = f"Bearer {os.getenv('API_TOKEN')}"
     return headers
+
 
 # Thread-local storage for job progress updates
 _thread_local = threading.local()
@@ -74,10 +73,10 @@ def stop_scheduler():
 
 def create_job(
     job_type: JobType,
-    parameters: Dict[str, Any],
+    parameters: dict[str, Any],
     priority: int = 5,
     total_items: int = 1,
-    delay_seconds: int = 0
+    delay_seconds: int = 0,
 ) -> Job:
     """Create a new job and schedule it for execution."""
 
@@ -88,7 +87,7 @@ def create_job(
         priority=priority,
         total_items=total_items,
         parameters=parameters,
-        rq_job_id=str(uuid.uuid4())  # Keep field name for compatibility
+        rq_job_id=str(uuid.uuid4()),  # Keep field name for compatibility
     )
 
     db.session.add(job)
@@ -99,28 +98,32 @@ def create_job(
 
     # Select executor based on priority
     if priority >= 8:
-        executor = 'high_priority'
+        executor = "high_priority"
     elif priority <= 3:
-        executor = 'low_priority'
+        executor = "low_priority"
     else:
-        executor = 'default'
+        executor = "default"
 
     # Schedule the job
     scheduled_job = scheduler.add_job(
         execute_job,
-        'date',
-        run_date=datetime.now() if delay_seconds == 0 else datetime.now().timestamp() + delay_seconds,
+        "date",
+        run_date=datetime.now()
+        if delay_seconds == 0
+        else datetime.now().timestamp() + delay_seconds,
         args=[job.id],
         id=job.rq_job_id,
         executor=executor,
-        replace_existing=True
+        replace_existing=True,
     )
 
-    logger.info(f"Scheduled job {job.id} ({job_type.value}) with scheduler ID {scheduled_job.id}")
+    logger.info(
+        f"Scheduled job {job.id} ({job_type.value}) with scheduler ID {scheduled_job.id}"
+    )
     return job
 
 
-def execute_job(job_id: int) -> Dict[str, Any]:
+def execute_job(job_id: int) -> dict[str, Any]:
     """Execute a job based on its type."""
 
     from deaddit import app
@@ -195,9 +198,13 @@ def execute_job(job_id: int) -> Dict[str, Any]:
 
                 if partial_result and partial_result.get("api_requests"):
                     job.result = partial_result
-                    logger.info(f"Preserved {len(partial_result['api_requests'])} API requests for failed job {job_id}")
+                    logger.info(
+                        f"Preserved {len(partial_result['api_requests'])} API requests for failed job {job_id}"
+                    )
             except Exception as partial_e:
-                logger.warning(f"Could not preserve partial results for failed job {job_id}: {partial_e}")
+                logger.warning(
+                    f"Could not preserve partial results for failed job {job_id}: {partial_e}"
+                )
 
             db.session.commit()
 
@@ -208,53 +215,38 @@ def execute_job(job_id: int) -> Dict[str, Any]:
             raise
 
 
-def _get_partial_subdeaddit_result() -> Dict[str, Any]:
+def _get_partial_subdeaddit_result() -> dict[str, Any]:
     """Get partial results for failed subdeaddit creation job."""
-    api_requests = getattr(_thread_local, 'api_requests', [])
+    api_requests = getattr(_thread_local, "api_requests", [])
     return {
         "subdeaddits": [],
         "count": 0,
         "api_requests": api_requests,
-        "partial": True
+        "partial": True,
     }
 
 
-def _get_partial_user_result() -> Dict[str, Any]:
+def _get_partial_user_result() -> dict[str, Any]:
     """Get partial results for failed user creation job."""
-    api_requests = getattr(_thread_local, 'api_requests', [])
-    return {
-        "users": [],
-        "count": 0,
-        "api_requests": api_requests,
-        "partial": True
-    }
+    api_requests = getattr(_thread_local, "api_requests", [])
+    return {"users": [], "count": 0, "api_requests": api_requests, "partial": True}
 
 
-def _get_partial_post_result() -> Dict[str, Any]:
+def _get_partial_post_result() -> dict[str, Any]:
     """Get partial results for failed post creation job."""
-    api_requests = getattr(_thread_local, 'api_requests', [])
-    return {
-        "posts": [],
-        "count": 0,
-        "api_requests": api_requests,
-        "partial": True
-    }
+    api_requests = getattr(_thread_local, "api_requests", [])
+    return {"posts": [], "count": 0, "api_requests": api_requests, "partial": True}
 
 
-def _get_partial_comment_result() -> Dict[str, Any]:
+def _get_partial_comment_result() -> dict[str, Any]:
     """Get partial results for failed comment creation job."""
-    api_requests = getattr(_thread_local, 'api_requests', [])
-    return {
-        "comments": [],
-        "count": 0,
-        "api_requests": api_requests,
-        "partial": True
-    }
+    api_requests = getattr(_thread_local, "api_requests", [])
+    return {"comments": [], "count": 0, "api_requests": api_requests, "partial": True}
 
 
 def _update_job_progress(progress: int):
     """Update job progress in database (thread-safe)."""
-    if not hasattr(_thread_local, 'job_id'):
+    if not hasattr(_thread_local, "job_id"):
         return
 
     try:
@@ -275,22 +267,26 @@ def _emit_job_update(job: Job):
         from deaddit import socketio
 
         job_data = job.to_dict()
-        socketio.emit('job_update', {
-            'job_id': job.id,
-            'status': job.status.value,
-            'progress': job.progress,
-            'total_items': job.total_items,
-            'error_message': job.error_message,
-            'completed_at': job_data['completed_at'],
-            'started_at': job_data['started_at']
-        }, namespace='/admin')
+        socketio.emit(
+            "job_update",
+            {
+                "job_id": job.id,
+                "status": job.status.value,
+                "progress": job.progress,
+                "total_items": job.total_items,
+                "error_message": job.error_message,
+                "completed_at": job_data["completed_at"],
+                "started_at": job_data["started_at"],
+            },
+            namespace="/admin",
+        )
 
         logger.debug(f"Emitted job update for job {job.id}")
     except Exception as e:
         logger.warning(f"Could not emit job update: {e}")
 
 
-def _execute_create_subdeaddit(job: Job) -> Dict[str, Any]:
+def _execute_create_subdeaddit(job: Job) -> dict[str, Any]:
     """Execute subdeaddit creation job."""
     params = job.parameters
     count = params.get("count", 1)
@@ -319,15 +315,19 @@ def _execute_create_subdeaddit(job: Job) -> Dict[str, Any]:
                 subdeaddit_data = _generate_subdeaddit_data(model)
 
                 # Store the API request/response for debugging
-                api_requests.append({
-                    "request": subdeaddit_data.get("_api_request"),
-                    "response": subdeaddit_data.get("_api_response"),
-                    "model_used": subdeaddit_data.get("model"),
-                    "retry_attempt": retry_count
-                })
+                api_requests.append(
+                    {
+                        "request": subdeaddit_data.get("_api_request"),
+                        "response": subdeaddit_data.get("_api_response"),
+                        "model_used": subdeaddit_data.get("model"),
+                        "retry_attempt": retry_count,
+                    }
+                )
 
                 # Remove internal fields before ingesting
-                clean_subdeaddit_data = {k: v for k, v in subdeaddit_data.items() if not k.startswith("_")}
+                clean_subdeaddit_data = {
+                    k: v for k, v in subdeaddit_data.items() if not k.startswith("_")
+                }
 
                 # Ingest the subdeaddit via API (format: {"subdeaddits": [data]})
                 ingest_payload = {"subdeaddits": [clean_subdeaddit_data]}
@@ -339,7 +339,7 @@ def _execute_create_subdeaddit(job: Job) -> Dict[str, Any]:
                 )
 
                 if response.status_code in [200, 201]:
-                    result = response.json()
+                    response.json()
                     subdeaddit_name = clean_subdeaddit_data.get("name", "unknown")
                     results.append(subdeaddit_name)
                     logger.info(f"Created subdeaddit: {subdeaddit_name}")
@@ -351,16 +351,20 @@ def _execute_create_subdeaddit(job: Job) -> Dict[str, Any]:
 
             except Exception as e:
                 retry_count += 1
-                error_msg = f"Failed to create subdeaddit {i+1} (attempt {retry_count}/{max_retries}): {str(e)}"
+                error_msg = f"Failed to create subdeaddit {i + 1} (attempt {retry_count}/{max_retries}): {str(e)}"
                 logger.warning(error_msg)
 
                 if retry_count >= max_retries:
-                    failed_attempts.append({
-                        "subdeaddit_index": i+1,
-                        "error": str(e),
-                        "attempts": retry_count
-                    })
-                    logger.error(f"Subdeaddit {i+1} failed after {max_retries} attempts: {str(e)}")
+                    failed_attempts.append(
+                        {
+                            "subdeaddit_index": i + 1,
+                            "error": str(e),
+                            "attempts": retry_count,
+                        }
+                    )
+                    logger.error(
+                        f"Subdeaddit {i + 1} failed after {max_retries} attempts: {str(e)}"
+                    )
                     break
                 else:
                     # Wait a bit before retrying
@@ -372,21 +376,25 @@ def _execute_create_subdeaddit(job: Job) -> Dict[str, Any]:
 
     # If we have some successes but also some failures, log the failures but don't fail the entire job
     if results and failed_attempts:
-        logger.warning(f"Subdeaddit job completed with {len(results)} successes and {len(failed_attempts)} failures")
+        logger.warning(
+            f"Subdeaddit job completed with {len(results)} successes and {len(failed_attempts)} failures"
+        )
 
     # Only fail the entire job if we got zero successes
     if not results and failed_attempts:
-        raise Exception(f"All {len(failed_attempts)} subdeaddit creation attempts failed")
+        raise Exception(
+            f"All {len(failed_attempts)} subdeaddit creation attempts failed"
+        )
 
     return {
         "subdeaddits": results,
         "count": len(results),
         "failed_attempts": failed_attempts,
-        "api_requests": api_requests
+        "api_requests": api_requests,
     }
 
 
-def _execute_create_user(job: Job) -> Dict[str, Any]:
+def _execute_create_user(job: Job) -> dict[str, Any]:
     """Execute user creation job."""
 
     params = job.parameters
@@ -416,15 +424,19 @@ def _execute_create_user(job: Job) -> Dict[str, Any]:
                 user_data = _generate_user_data(model)
 
                 # Store the API request/response for debugging
-                api_requests.append({
-                    "request": user_data.get("_api_request"),
-                    "response": user_data.get("_api_response"),
-                    "model_used": user_data.get("model"),
-                    "retry_attempt": retry_count
-                })
+                api_requests.append(
+                    {
+                        "request": user_data.get("_api_request"),
+                        "response": user_data.get("_api_response"),
+                        "model_used": user_data.get("model"),
+                        "retry_attempt": retry_count,
+                    }
+                )
 
                 # Remove internal fields before ingesting
-                clean_user_data = {k: v for k, v in user_data.items() if not k.startswith("_")}
+                clean_user_data = {
+                    k: v for k, v in user_data.items() if not k.startswith("_")
+                }
 
                 # Ingest the user via API
                 response = requests.post(
@@ -446,16 +458,16 @@ def _execute_create_user(job: Job) -> Dict[str, Any]:
 
             except Exception as e:
                 retry_count += 1
-                error_msg = f"Failed to create user {i+1} (attempt {retry_count}/{max_retries}): {str(e)}"
+                error_msg = f"Failed to create user {i + 1} (attempt {retry_count}/{max_retries}): {str(e)}"
                 logger.warning(error_msg)
 
                 if retry_count >= max_retries:
-                    failed_attempts.append({
-                        "user_index": i+1,
-                        "error": str(e),
-                        "attempts": retry_count
-                    })
-                    logger.error(f"User {i+1} failed after {max_retries} attempts: {str(e)}")
+                    failed_attempts.append(
+                        {"user_index": i + 1, "error": str(e), "attempts": retry_count}
+                    )
+                    logger.error(
+                        f"User {i + 1} failed after {max_retries} attempts: {str(e)}"
+                    )
                     break
                 else:
                     # Wait a bit before retrying
@@ -467,7 +479,9 @@ def _execute_create_user(job: Job) -> Dict[str, Any]:
 
     # If we have some successes but also some failures, log the failures but don't fail the entire job
     if results and failed_attempts:
-        logger.warning(f"User job completed with {len(results)} successes and {len(failed_attempts)} failures")
+        logger.warning(
+            f"User job completed with {len(results)} successes and {len(failed_attempts)} failures"
+        )
 
     # Only fail the entire job if we got zero successes
     if not results and failed_attempts:
@@ -477,11 +491,11 @@ def _execute_create_user(job: Job) -> Dict[str, Any]:
         "users": results,
         "count": len(results),
         "failed_attempts": failed_attempts,
-        "api_requests": api_requests
+        "api_requests": api_requests,
     }
 
 
-def _generate_user_data(model: str = None) -> Dict[str, Any]:
+def _generate_user_data(model: str = None) -> dict[str, Any]:
     """Generate user data using OpenAI API."""
     import json
     import random
@@ -492,16 +506,22 @@ def _generate_user_data(model: str = None) -> Dict[str, Any]:
     existing_users = User.query.limit(5).all()
     existing_user_info = []
     for user in existing_users:
-        existing_user_info.append({
-            "username": user.username,
-            "age": user.age,
-            "bio": user.bio,
-            "writing_style": user.writing_style,
-            "interests": user.get_interests() if hasattr(user, 'get_interests') else [],
-            "occupation": user.occupation,
-            "education": user.education,
-            "personality_traits": user.get_personality_traits() if hasattr(user, 'get_personality_traits') else [],
-        })
+        existing_user_info.append(
+            {
+                "username": user.username,
+                "age": user.age,
+                "bio": user.bio,
+                "writing_style": user.writing_style,
+                "interests": user.get_interests()
+                if hasattr(user, "get_interests")
+                else [],
+                "occupation": user.occupation,
+                "education": user.education,
+                "personality_traits": user.get_personality_traits()
+                if hasattr(user, "get_personality_traits")
+                else [],
+            }
+        )
     existing_user_info_json = json.dumps(existing_user_info)
 
     selected_gender = random.choice(["Male", "Female"])
@@ -559,14 +579,16 @@ def _generate_user_data(model: str = None) -> Dict[str, Any]:
         user_data["_api_request"] = {
             "system_prompt": system_prompt,
             "prompt": prompt,
-            "model": used_model
+            "model": used_model,
         }
         user_data["_api_response"] = api_response
 
     return user_data or {}
 
 
-def _send_openai_request(system_prompt: str, prompt: str, model: str = None) -> tuple[str, str]:
+def _send_openai_request(
+    system_prompt: str, prompt: str, model: str = None
+) -> tuple[str, str]:
     """Send request to OpenAI API."""
     import random
 
@@ -581,14 +603,25 @@ def _send_openai_request(system_prompt: str, prompt: str, model: str = None) -> 
         selected_model = Config.get("OPENAI_MODEL", "llama3")
 
     temperature = round(random.uniform(0.9, 1), 2)
-    logger.info(f"Sending request to {OPENAI_API_URL} using model {selected_model}, temperature {temperature}")
+    logger.info(
+        f"Sending request to {OPENAI_API_URL} using model {selected_model}, temperature {temperature}"
+    )
 
     headers = {
         "Authorization": f"Bearer {OPENAI_KEY}",
         "Content-Type": "application/json",
     }
 
-    stop_values = ["}\n```\n", "assistant", "}  #", "} #", "}\n\n", "}\n}", "##", "```\n\n"]
+    stop_values = [
+        "}\n```\n",
+        "assistant",
+        "}  #",
+        "} #",
+        "}\n\n",
+        "}\n}",
+        "##",
+        "```\n\n",
+    ]
     if "api.groq.com" in OPENAI_API_URL:
         stop_values = stop_values[:4]
 
@@ -636,12 +669,14 @@ def _send_openai_request(system_prompt: str, prompt: str, model: str = None) -> 
 
         return content, selected_model
     else:
-        error_msg = f"OpenAI API request failed: {response.status_code} - {response.text}"
+        error_msg = (
+            f"OpenAI API request failed: {response.status_code} - {response.text}"
+        )
         logger.error(error_msg)
         raise Exception(error_msg)
 
 
-def _parse_json_response(response: str, content_type: str) -> Dict[str, Any]:
+def _parse_json_response(response: str, content_type: str) -> dict[str, Any]:
     """Parse JSON response from OpenAI API."""
     import json
     import re
@@ -650,20 +685,20 @@ def _parse_json_response(response: str, content_type: str) -> Dict[str, Any]:
     response = response.strip()
 
     # Try to extract JSON from markdown code blocks first
-    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
     if json_match:
         response = json_match.group(1)
     else:
         # Find the first complete JSON object in the response
-        start_idx = response.find('{')
+        start_idx = response.find("{")
         if start_idx != -1:
             brace_count = 0
             end_idx = start_idx
 
             for i in range(start_idx, len(response)):
-                if response[i] == '{':
+                if response[i] == "{":
                     brace_count += 1
-                elif response[i] == '}':
+                elif response[i] == "}":
                     brace_count -= 1
                     if brace_count == 0:
                         end_idx = i + 1
@@ -676,12 +711,14 @@ def _parse_json_response(response: str, content_type: str) -> Dict[str, Any]:
                 response = response[start_idx:]
                 missing_braces = brace_count
                 if missing_braces > 0:
-                    response += '}' * missing_braces
-                    logger.warning(f"Added {missing_braces} missing closing brace(s) to JSON")
+                    response += "}" * missing_braces
+                    logger.warning(
+                        f"Added {missing_braces} missing closing brace(s) to JSON"
+                    )
 
     # Try to fix trailing commas and other issues
-    response = re.sub(r',\s*}', '}', response)  # Remove trailing commas before }
-    response = re.sub(r',\s*]', ']', response)  # Remove trailing commas before ]
+    response = re.sub(r",\s*}", "}", response)  # Remove trailing commas before }
+    response = re.sub(r",\s*]", "]", response)  # Remove trailing commas before ]
 
     try:
         return json.loads(response)
@@ -698,13 +735,17 @@ def _parse_json_response(response: str, content_type: str) -> Dict[str, Any]:
             if name_match and desc_match:
                 result = {
                     "name": name_match.group(1),
-                    "description": desc_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                    "description": desc_match.group(1)
+                    .replace('\\"', '"')
+                    .replace("\\n", "\n"),
                 }
 
                 if post_types_match:
                     # Parse post types array
                     post_types_str = post_types_match.group(1)
-                    post_types = [pt.strip().strip('"') for pt in post_types_str.split(',')]
+                    post_types = [
+                        pt.strip().strip('"') for pt in post_types_str.split(",")
+                    ]
                     result["post_types"] = post_types
 
                 logger.info(f"Extracted {content_type} data using regex fallback")
@@ -715,7 +756,7 @@ def _parse_json_response(response: str, content_type: str) -> Dict[str, Any]:
         return {}
 
 
-def _generate_subdeaddit_data(model: str = None) -> Dict[str, Any]:
+def _generate_subdeaddit_data(model: str = None) -> dict[str, Any]:
     """Generate subdeaddit data using OpenAI API."""
 
     system_prompt = """You are a creative online community manager who is great at coming up with ideas for new online communities and describing what kind of content and discussions would be found in them."""
@@ -753,14 +794,16 @@ def _generate_subdeaddit_data(model: str = None) -> Dict[str, Any]:
         subdeaddit_data["_api_request"] = {
             "system_prompt": system_prompt,
             "prompt": prompt,
-            "model": used_model
+            "model": used_model,
         }
         subdeaddit_data["_api_response"] = api_response
 
     return subdeaddit_data or {}
 
 
-def _generate_post_data(subdeaddit_name: str = None, model: str = None) -> Dict[str, Any]:
+def _generate_post_data(
+    subdeaddit_name: str = None, model: str = None
+) -> dict[str, Any]:
     """Generate post data using OpenAI API."""
     import random
 
@@ -786,18 +829,22 @@ def _generate_post_data(subdeaddit_name: str = None, model: str = None) -> Dict[
         subdeaddit = random.choice(subdeaddits)
 
     # Get subdeaddit post types
-    post_types = subdeaddit.get_post_types() if hasattr(subdeaddit, 'get_post_types') else ["discussion"]
+    post_types = (
+        subdeaddit.get_post_types()
+        if hasattr(subdeaddit, "get_post_types")
+        else ["discussion"]
+    )
     selected_post_type = random.choice(post_types) if post_types else "discussion"
 
-    system_prompt = f"""You are {author.username}, a {author.age}-year-old {author.gender.lower()} who works as a {author.occupation}. 
+    system_prompt = f"""You are {author.username}, a {author.age}-year-old {author.gender.lower()} who works as a {author.occupation}.
 
 Your personality: {author.bio}
 Your writing style: {author.writing_style}
-Your interests: {', '.join(author.get_interests() if hasattr(author, 'get_interests') else [])}
+Your interests: {", ".join(author.get_interests() if hasattr(author, "get_interests") else [])}
 
 You are creating a post for the /r/{subdeaddit.name} community, which is about: {subdeaddit.description}"""
 
-    prompt = f"""Create a {selected_post_type} post for /r/{subdeaddit.name}. 
+    prompt = f"""Create a {selected_post_type} post for /r/{subdeaddit.name}.
 
 The post should:
 - Be authentic to your personality and interests
@@ -838,14 +885,16 @@ Create the post now."""
         post_data["_api_request"] = {
             "system_prompt": system_prompt,
             "prompt": prompt,
-            "model": used_model
+            "model": used_model,
         }
         post_data["_api_response"] = api_response
 
     return post_data or {}
 
 
-def _generate_comment_data(post_id: int = None, subdeaddit_name: str = None, model: str = None) -> Dict[str, Any]:
+def _generate_comment_data(
+    post_id: int = None, subdeaddit_name: str = None, model: str = None
+) -> dict[str, Any]:
     """Generate comment data using OpenAI API."""
     import random
 
@@ -877,11 +926,11 @@ def _generate_comment_data(post_id: int = None, subdeaddit_name: str = None, mod
             raise Exception("No posts available to comment on")
         post = random.choice(posts)
 
-    system_prompt = f"""You are {author.username}, a {author.age}-year-old {author.gender.lower()} who works as a {author.occupation}. 
+    system_prompt = f"""You are {author.username}, a {author.age}-year-old {author.gender.lower()} who works as a {author.occupation}.
 
 Your personality: {author.bio}
 Your writing style: {author.writing_style}
-Your interests: {', '.join(author.get_interests() if hasattr(author, 'get_interests') else [])}
+Your interests: {", ".join(author.get_interests() if hasattr(author, "get_interests") else [])}
 
 You are commenting on a post in /r/{post.subdeaddit.name}."""
 
@@ -926,21 +975,23 @@ Write your comment now."""
         comment_data["_api_request"] = {
             "system_prompt": system_prompt,
             "prompt": prompt,
-            "model": used_model
+            "model": used_model,
         }
         comment_data["_api_response"] = api_response
 
     return comment_data or {}
 
 
-def _queue_comment_jobs_for_post(post_result: Dict[str, Any], replies: str, model: str = None, priority: int = 5):
+def _queue_comment_jobs_for_post(
+    post_result: dict[str, Any], replies: str, model: str = None, priority: int = 5
+):
     """Queue comment generation jobs for a newly created post."""
     import random
 
     # Parse the replies range (e.g., "5-10", "7", "3-15")
     try:
-        if '-' in replies:
-            min_replies, max_replies = replies.split('-', 1)
+        if "-" in replies:
+            min_replies, max_replies = replies.split("-", 1)
             min_replies = int(min_replies.strip())
             max_replies = int(max_replies.strip())
         else:
@@ -952,11 +1003,11 @@ def _queue_comment_jobs_for_post(post_result: Dict[str, Any], replies: str, mode
         # Extract post ID from the API response
         # The API response should contain the created post ID in posts array
         post_id = None
-        if 'posts' in post_result and post_result['posts']:
+        if "posts" in post_result and post_result["posts"]:
             # Posts is a list of objects with id and title
-            first_post = post_result['posts'][0]
-            if isinstance(first_post, dict) and 'id' in first_post:
-                post_id = first_post['id']
+            first_post = post_result["posts"][0]
+            if isinstance(first_post, dict) and "id" in first_post:
+                post_id = first_post["id"]
                 logger.debug(f"Extracted post ID {post_id} from API response")
             else:
                 logger.warning(f"Post object missing ID field: {first_post}")
@@ -971,22 +1022,20 @@ def _queue_comment_jobs_for_post(post_result: Dict[str, Any], replies: str, mode
         if num_comments > 0:
             comment_job = create_job(
                 job_type=JobType.CREATE_COMMENT,
-                parameters={
-                    "count": num_comments,
-                    "post_id": post_id,
-                    "model": model
-                },
+                parameters={"count": num_comments, "post_id": post_id, "model": model},
                 priority=priority,
-                total_items=num_comments
+                total_items=num_comments,
             )
 
-            logger.info(f"Queued comment generation job (ID: {comment_job.id}) for post {post_id}: {num_comments} comments")
+            logger.info(
+                f"Queued comment generation job (ID: {comment_job.id}) for post {post_id}: {num_comments} comments"
+            )
 
     except (ValueError, IndexError) as e:
         logger.warning(f"Could not parse replies range '{replies}': {e}")
 
 
-def _execute_create_post(job: Job) -> Dict[str, Any]:
+def _execute_create_post(job: Job) -> dict[str, Any]:
     """Execute post creation job."""
     params = job.parameters
     count = params.get("count", 1)
@@ -1016,15 +1065,19 @@ def _execute_create_post(job: Job) -> Dict[str, Any]:
                 post_data = _generate_post_data(subdeaddit, model)
 
                 # Store the API request/response for debugging
-                api_requests.append({
-                    "request": post_data.get("_api_request"),
-                    "response": post_data.get("_api_response"),
-                    "model_used": post_data.get("model"),
-                    "retry_attempt": retry_count
-                })
+                api_requests.append(
+                    {
+                        "request": post_data.get("_api_request"),
+                        "response": post_data.get("_api_response"),
+                        "model_used": post_data.get("model"),
+                        "retry_attempt": retry_count,
+                    }
+                )
 
                 # Remove internal fields before ingesting
-                clean_post_data = {k: v for k, v in post_data.items() if not k.startswith("_")}
+                clean_post_data = {
+                    k: v for k, v in post_data.items() if not k.startswith("_")
+                }
 
                 # Ingest the post via API (format: {"posts": [data]})
                 ingest_payload = {"posts": [clean_post_data]}
@@ -1043,7 +1096,9 @@ def _execute_create_post(job: Job) -> Dict[str, Any]:
 
                     # Queue comment generation jobs if replies are specified
                     if replies and replies.strip():
-                        _queue_comment_jobs_for_post(result, replies, model, job.priority)
+                        _queue_comment_jobs_for_post(
+                            result, replies, model, job.priority
+                        )
 
                     success = True
                 else:
@@ -1053,16 +1108,16 @@ def _execute_create_post(job: Job) -> Dict[str, Any]:
 
             except Exception as e:
                 retry_count += 1
-                error_msg = f"Failed to create post {i+1} (attempt {retry_count}/{max_retries}): {str(e)}"
+                error_msg = f"Failed to create post {i + 1} (attempt {retry_count}/{max_retries}): {str(e)}"
                 logger.warning(error_msg)
 
                 if retry_count >= max_retries:
-                    failed_attempts.append({
-                        "post_index": i+1,
-                        "error": str(e),
-                        "attempts": retry_count
-                    })
-                    logger.error(f"Post {i+1} failed after {max_retries} attempts: {str(e)}")
+                    failed_attempts.append(
+                        {"post_index": i + 1, "error": str(e), "attempts": retry_count}
+                    )
+                    logger.error(
+                        f"Post {i + 1} failed after {max_retries} attempts: {str(e)}"
+                    )
                     break
                 else:
                     # Wait a bit before retrying
@@ -1074,7 +1129,9 @@ def _execute_create_post(job: Job) -> Dict[str, Any]:
 
     # If we have some successes but also some failures, log the failures but don't fail the entire job
     if results and failed_attempts:
-        logger.warning(f"Job completed with {len(results)} successes and {len(failed_attempts)} failures")
+        logger.warning(
+            f"Job completed with {len(results)} successes and {len(failed_attempts)} failures"
+        )
 
     # Only fail the entire job if we got zero successes
     if not results and failed_attempts:
@@ -1084,11 +1141,11 @@ def _execute_create_post(job: Job) -> Dict[str, Any]:
         "posts": results,
         "count": len(results),
         "failed_attempts": failed_attempts,
-        "api_requests": api_requests
+        "api_requests": api_requests,
     }
 
 
-def _execute_create_comment(job: Job) -> Dict[str, Any]:
+def _execute_create_comment(job: Job) -> dict[str, Any]:
     """Execute comment creation job."""
     params = job.parameters
     count = params.get("count", 1)
@@ -1118,15 +1175,19 @@ def _execute_create_comment(job: Job) -> Dict[str, Any]:
                 comment_data = _generate_comment_data(post_id, subdeaddit, model)
 
                 # Store the API request/response for debugging
-                api_requests.append({
-                    "request": comment_data.get("_api_request"),
-                    "response": comment_data.get("_api_response"),
-                    "model_used": comment_data.get("model"),
-                    "retry_attempt": retry_count
-                })
+                api_requests.append(
+                    {
+                        "request": comment_data.get("_api_request"),
+                        "response": comment_data.get("_api_response"),
+                        "model_used": comment_data.get("model"),
+                        "retry_attempt": retry_count,
+                    }
+                )
 
                 # Remove internal fields before ingesting
-                clean_comment_data = {k: v for k, v in comment_data.items() if not k.startswith("_")}
+                clean_comment_data = {
+                    k: v for k, v in comment_data.items() if not k.startswith("_")
+                }
 
                 # Ingest the comment via API (format: {"comments": [data]})
                 ingest_payload = {"comments": [clean_comment_data]}
@@ -1138,10 +1199,12 @@ def _execute_create_comment(job: Job) -> Dict[str, Any]:
                 )
 
                 if response.status_code in [200, 201]:
-                    result = response.json()
+                    response.json()
                     comment_content = clean_comment_data.get("content", "unknown")[:50]
                     results.append(comment_content)
-                    logger.info(f"Created comment for post {post_id}: {comment_content}")
+                    logger.info(
+                        f"Created comment for post {post_id}: {comment_content}"
+                    )
                     success = True
                 else:
                     error_msg = f"Failed to ingest comment (HTTP {response.status_code}): {response.text}"
@@ -1150,16 +1213,20 @@ def _execute_create_comment(job: Job) -> Dict[str, Any]:
 
             except Exception as e:
                 retry_count += 1
-                error_msg = f"Failed to create comment {i+1} (attempt {retry_count}/{max_retries}): {str(e)}"
+                error_msg = f"Failed to create comment {i + 1} (attempt {retry_count}/{max_retries}): {str(e)}"
                 logger.warning(error_msg)
 
                 if retry_count >= max_retries:
-                    failed_attempts.append({
-                        "comment_index": i+1,
-                        "error": str(e),
-                        "attempts": retry_count
-                    })
-                    logger.error(f"Comment {i+1} failed after {max_retries} attempts: {str(e)}")
+                    failed_attempts.append(
+                        {
+                            "comment_index": i + 1,
+                            "error": str(e),
+                            "attempts": retry_count,
+                        }
+                    )
+                    logger.error(
+                        f"Comment {i + 1} failed after {max_retries} attempts: {str(e)}"
+                    )
                     break
                 else:
                     # Wait a bit before retrying
@@ -1171,7 +1238,9 @@ def _execute_create_comment(job: Job) -> Dict[str, Any]:
 
     # If we have some successes but also some failures, log the failures but don't fail the entire job
     if results and failed_attempts:
-        logger.warning(f"Comment job completed with {len(results)} successes and {len(failed_attempts)} failures")
+        logger.warning(
+            f"Comment job completed with {len(results)} successes and {len(failed_attempts)} failures"
+        )
 
     # Only fail the entire job if we got zero successes
     if not results and failed_attempts:
@@ -1181,11 +1250,11 @@ def _execute_create_comment(job: Job) -> Dict[str, Any]:
         "comments": results,
         "count": len(results),
         "failed_attempts": failed_attempts,
-        "api_requests": api_requests
+        "api_requests": api_requests,
     }
 
 
-def _execute_batch_operation(job: Job) -> Dict[str, Any]:
+def _execute_batch_operation(job: Job) -> dict[str, Any]:
     """Execute batch operation job."""
     params = job.parameters
     operations = params.get("operations", [])
@@ -1208,7 +1277,7 @@ def _execute_batch_operation(job: Job) -> Dict[str, Any]:
     return {"batch_results": results, "count": len(results)}
 
 
-def get_job_status(job_id: int) -> Optional[Dict[str, Any]]:
+def get_job_status(job_id: int) -> Optional[dict[str, Any]]:
     """Get the current status of a job."""
     job = db.session.get(Job, job_id)
     if not job:
@@ -1243,14 +1312,14 @@ def cancel_job(job_id: int) -> bool:
     return False
 
 
-def get_queue_stats() -> Dict[str, Any]:
+def get_queue_stats() -> dict[str, Any]:
     """Get statistics about the job queues."""
     if not scheduler.running:
         return {
             "scheduler_running": False,
             "total_jobs": 0,
             "pending_jobs": 0,
-            "running_jobs": 0
+            "running_jobs": 0,
         }
 
     # Get APScheduler job info
@@ -1263,15 +1332,15 @@ def get_queue_stats() -> Dict[str, Any]:
         "running_jobs": 0,  # APScheduler doesn't easily track running jobs
         "high_priority": {"pending": 0, "failed": 0},
         "normal": {"pending": len(scheduled_jobs), "failed": 0},
-        "low_priority": {"pending": 0, "failed": 0}
+        "low_priority": {"pending": 0, "failed": 0},
     }
 
 
 def schedule_recurring_job(
     job_type: JobType,
-    parameters: Dict[str, Any],
+    parameters: dict[str, Any],
     cron_expression: str,
-    job_id: str = None
+    job_id: str = None,
 ) -> str:
     """Schedule a recurring job using cron expression."""
 
@@ -1283,58 +1352,64 @@ def schedule_recurring_job(
 
     start_scheduler()
 
-    scheduled_job = scheduler.add_job(
+    scheduler.add_job(
         lambda: create_job(job_type, parameters),
-        'cron',
+        "cron",
         id=job_id,
         **_parse_cron_kwargs(cron_expression),
-        replace_existing=True
+        replace_existing=True,
     )
 
     logger.info(f"Scheduled recurring job {job_id} with cron: {cron_expression}")
     return job_id
 
 
-def _parse_cron_kwargs(cron_expression: str) -> Dict[str, Any]:
+def _parse_cron_kwargs(cron_expression: str) -> dict[str, Any]:
     """Parse basic cron expression into APScheduler kwargs."""
     # This is a simplified parser - in production you'd want more robust parsing
     parts = cron_expression.split()
     if len(parts) != 5:
-        raise ValueError("Cron expression must have 5 parts: minute hour day month day_of_week")
+        raise ValueError(
+            "Cron expression must have 5 parts: minute hour day month day_of_week"
+        )
 
     minute, hour, day, month, day_of_week = parts
 
     kwargs = {}
-    if minute != '*':
-        kwargs['minute'] = minute
-    if hour != '*':
-        kwargs['hour'] = hour
-    if day != '*':
-        kwargs['day'] = day
-    if month != '*':
-        kwargs['month'] = month
-    if day_of_week != '*':
-        kwargs['day_of_week'] = day_of_week
+    if minute != "*":
+        kwargs["minute"] = minute
+    if hour != "*":
+        kwargs["hour"] = hour
+    if day != "*":
+        kwargs["day"] = day
+    if month != "*":
+        kwargs["month"] = month
+    if day_of_week != "*":
+        kwargs["day_of_week"] = day_of_week
 
     return kwargs
 
 
-def get_scheduler_info() -> Dict[str, Any]:
+def get_scheduler_info() -> dict[str, Any]:
     """Get information about the scheduler and its jobs."""
     if not scheduler.running:
         return {"running": False, "jobs": []}
 
     jobs = []
     for job in scheduler.get_jobs():
-        jobs.append({
-            "id": job.id,
-            "name": job.name or job.func.__name__,
-            "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
-            "executor": job.executor
-        })
+        jobs.append(
+            {
+                "id": job.id,
+                "name": job.name or job.func.__name__,
+                "next_run": job.next_run_time.isoformat()
+                if job.next_run_time
+                else None,
+                "executor": job.executor,
+            }
+        )
 
     return {
         "running": True,
         "jobs": jobs,
-        "executors": list(scheduler._executors.keys())
+        "executors": list(scheduler._executors.keys()),
     }

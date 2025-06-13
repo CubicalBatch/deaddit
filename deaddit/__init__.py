@@ -15,7 +15,7 @@ app.config["CACHE_DEFAULT_TIMEOUT"] = 300  # 5 minutes default timeout
 
 db = SQLAlchemy(app)
 cache = Cache(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # Get the API token from environment variable
 API_TOKEN = os.environ.get("API_TOKEN")
@@ -36,8 +36,8 @@ def authenticate():
             return jsonify({"error": "Unauthorized"}), 401
 
 
-from .config import Config
-from .models import Comment, Post, Setting, Subdeaddit
+# Import config after app is created to avoid circular imports
+from .config import Config  # noqa: E402
 
 with app.app_context():
     db.create_all()
@@ -67,10 +67,11 @@ def handle_exception(e):
     return jsonify({"error": "An unexpected error occurred"}), 500
 
 
-from . import websocket  # Import WebSocket handlers
-from .admin import admin_bp
-from .api import *
-from .routes import *
+# Import routes and handlers after app/db initialization
+from . import websocket  # noqa: E402, F401
+from .admin import admin_bp  # noqa: E402
+from .api import *  # noqa: E402, F403
+from .routes import *  # noqa: E402, F403
 
 # Register admin blueprint
 app.register_blueprint(admin_bp)
