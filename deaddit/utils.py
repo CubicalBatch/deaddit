@@ -2,7 +2,7 @@
 Utility functions for the Deaddit application.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from sqlalchemy import func
 
@@ -11,7 +11,7 @@ from deaddit import cache, db
 from .models import Comment
 
 
-def get_comment_counts_bulk(post_ids: List[int]) -> Dict[int, int]:
+def get_comment_counts_bulk(post_ids: list[int]) -> dict[int, int]:
     """
     Efficiently get comment counts for multiple posts using a single query with caching.
 
@@ -72,8 +72,8 @@ def get_single_comment_count(post_id: int) -> int:
 
 
 def paginate_posts_with_model_cycling(
-    all_posts: List[Any], all_models: List[str], page: int, posts_per_page: int
-) -> Tuple[List[Any], int, bool]:
+    all_posts: list[Any], all_models: list[str], page: int, posts_per_page: int
+) -> tuple[list[Any], int, bool]:
     """
     Paginate posts while cycling through models for balanced representation.
 

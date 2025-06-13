@@ -15,34 +15,34 @@ class Config:
 
     # Default values for configuration
     DEFAULTS = {
-        'OPENAI_API_URL': 'http://localhost/v1',
-        'OPENAI_KEY': 'your_openrouter_api_key',
-        'OPENAI_MODEL': 'llama3',
-        'MODELS': 'llama3,gpt-3.5-turbo,gpt-4,claude-3-haiku,mistral-7b',
-        'API_BASE_URL': 'http://localhost:5000',
-        'SECRET_KEY': 'dev-secret-key-change-in-production',
-        'FLASK_ENV': 'development',
-        'FLASK_DEBUG': 'True',
-        'DEFAULT_DATA_LOADED': 'false',
+        "OPENAI_API_URL": "http://localhost/v1",
+        "OPENAI_KEY": "your_openrouter_api_key",
+        "OPENAI_MODEL": "llama3",
+        "MODELS": "llama3,gpt-3.5-turbo,gpt-4,claude-3-haiku,mistral-7b",
+        "API_BASE_URL": "http://localhost:5000",
+        "SECRET_KEY": "dev-secret-key-change-in-production",
+        "FLASK_ENV": "development",
+        "FLASK_DEBUG": "True",
+        "DEFAULT_DATA_LOADED": "false",
     }
 
     # Descriptions for each setting
     DESCRIPTIONS = {
-        'OPENAI_API_URL': 'Base URL for AI API service',
-        'OPENAI_KEY': 'API authentication key for AI service',
-        'OPENAI_MODEL': 'Default AI model to use for content generation',
-        'MODELS': 'Comma-separated list of available AI models',
-        'API_BASE_URL': 'Base URL for the application API',
-        'SECRET_KEY': 'Flask secret key for session management',
-        'FLASK_ENV': 'Flask environment (development/production)',
-        'FLASK_DEBUG': 'Enable Flask debug mode (True/False)',
-        'DEFAULT_DATA_LOADED': 'Whether default subdeaddits and users have been loaded',
+        "OPENAI_API_URL": "Base URL for AI API service",
+        "OPENAI_KEY": "API authentication key for AI service",
+        "OPENAI_MODEL": "Default AI model to use for content generation",
+        "MODELS": "Comma-separated list of available AI models",
+        "API_BASE_URL": "Base URL for the application API",
+        "SECRET_KEY": "Flask secret key for session management",
+        "FLASK_ENV": "Flask environment (development/production)",
+        "FLASK_DEBUG": "Enable Flask debug mode (True/False)",
+        "DEFAULT_DATA_LOADED": "Whether default subdeaddits and users have been loaded",
     }
 
     @classmethod
     def get(cls, key: str, default: Optional[str] = None) -> Optional[str]:
         """Get a configuration value.
-        
+
         Priority order:
         1. Database setting (if available)
         2. Environment variable (as fallback)
@@ -50,7 +50,7 @@ class Config:
         4. Provided default parameter
         """
         # Special case: API_TOKEN always comes from environment
-        if key == 'API_TOKEN':
+        if key == "API_TOKEN":
             return os.environ.get(key)
 
         try:
@@ -77,8 +77,10 @@ class Config:
     @classmethod
     def set(cls, key: str, value: str) -> None:
         """Set a configuration value in the database."""
-        if key == 'API_TOKEN':
-            raise ValueError("API_TOKEN cannot be set in database, use environment variable")
+        if key == "API_TOKEN":
+            raise ValueError(
+                "API_TOKEN cannot be set in database, use environment variable"
+            )
 
         description = cls.DESCRIPTIONS.get(key)
         Setting.set_value(key, value, description)
@@ -91,17 +93,17 @@ class Config:
         # Get all defined keys
         for key in cls.DEFAULTS.keys():
             settings[key] = {
-                'value': cls.get(key),
-                'description': cls.DESCRIPTIONS.get(key, ''),
-                'source': cls._get_source(key)
+                "value": cls.get(key),
+                "description": cls.DESCRIPTIONS.get(key, ""),
+                "source": cls._get_source(key),
             }
 
         # Add API_TOKEN info (but not the actual value for security)
-        api_token = os.environ.get('API_TOKEN')
-        settings['API_TOKEN'] = {
-            'value': '***set***' if api_token else '***not set***',
-            'description': 'Bearer token for protecting /api/ingest endpoints (environment variable only)',
-            'source': 'environment'
+        api_token = os.environ.get("API_TOKEN")
+        settings["API_TOKEN"] = {
+            "value": "***set***" if api_token else "***not set***",
+            "description": "Bearer token for protecting /api/ingest endpoints (environment variable only)",
+            "source": "environment",
         }
 
         return settings
@@ -109,24 +111,24 @@ class Config:
     @classmethod
     def _get_source(cls, key: str) -> str:
         """Determine the source of a configuration value."""
-        if key == 'API_TOKEN':
-            return 'environment'
+        if key == "API_TOKEN":
+            return "environment"
 
         try:
             db_value = Setting.get_value(key)
             if db_value is not None:
-                return 'database'
+                return "database"
         except Exception:
             pass
 
         env_value = os.environ.get(key)
         if env_value is not None:
-            return 'environment'
+            return "environment"
 
         if key in cls.DEFAULTS:
-            return 'default'
+            return "default"
 
-        return 'none'
+        return "none"
 
     @classmethod
     def initialize_defaults(cls) -> None:

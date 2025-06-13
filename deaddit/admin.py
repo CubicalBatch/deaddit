@@ -97,13 +97,13 @@ def generate():
     subdeaddits = Subdeaddit.query.all()
 
     # Check if default data has been loaded
-    default_data_loaded = Config.get('DEFAULT_DATA_LOADED', 'false') == 'true'
+    default_data_loaded = Config.get("DEFAULT_DATA_LOADED", "false") == "true"
 
     return render_template(
         "admin/generate.html",
         templates=templates,
         subdeaddits=subdeaddits,
-        default_data_loaded=default_data_loaded
+        default_data_loaded=default_data_loaded,
     )
 
 
@@ -260,15 +260,27 @@ def job_detail(job_id):
 
     # Find related jobs (same type, created around the same time)
     time_window = timedelta(hours=24)
-    related_jobs = Job.query.filter(
-        Job.id != job.id,
-        Job.type == job.type,
-        Job.created_at >= job.created_at - time_window,
-        Job.created_at <= job.created_at + time_window
-    ).order_by(desc(Job.created_at)).limit(10).all()
+    related_jobs = (
+        Job.query.filter(
+            Job.id != job.id,
+            Job.type == job.type,
+            Job.created_at >= job.created_at - time_window,
+            Job.created_at <= job.created_at + time_window,
+        )
+        .order_by(desc(Job.created_at))
+        .limit(10)
+        .all()
+    )
 
-    return render_template("admin/job_detail.html", job=job, related_jobs=related_jobs,
-                         User=User, Post=Post, Comment=Comment, Subdeaddit=Subdeaddit)
+    return render_template(
+        "admin/job_detail.html",
+        job=job,
+        related_jobs=related_jobs,
+        User=User,
+        Post=Post,
+        Comment=Comment,
+        Subdeaddit=Subdeaddit,
+    )
 
 
 @admin_bp.route("/jobs/<int:job_id>/cancel", methods=["POST"])
@@ -296,7 +308,7 @@ def retry_job_route(job_id):
         job_type=original_job.type,
         parameters=original_job.parameters,
         priority=original_job.priority,
-        total_items=original_job.total_items
+        total_items=original_job.total_items,
     )
 
     flash(f"Job retried as new job #{new_job.id}", "success")
@@ -324,7 +336,7 @@ def jobs_stats_api():
             "scheduler_running": False,
             "total_jobs": 0,
             "pending_jobs": 0,
-            "running_jobs": 0
+            "running_jobs": 0,
         }
 
     # Add database job counts
@@ -414,12 +426,14 @@ def settings():
     all_settings = Config.get_all_settings()
 
     config = {
-        "openai_api_url": all_settings['OPENAI_API_URL']['value'],
-        "openai_model": all_settings['OPENAI_MODEL']['value'],
-        "api_base_url": all_settings['API_BASE_URL']['value'],
-        "models": all_settings['MODELS']['value'],
-        "api_token_set": all_settings['API_TOKEN']['value'] == '***set***',
-        "openai_key_set": all_settings['OPENAI_KEY']['value'] != 'your_openrouter_api_key' and bool(all_settings['OPENAI_KEY']['value']),
+        "openai_api_url": all_settings["OPENAI_API_URL"]["value"],
+        "openai_model": all_settings["OPENAI_MODEL"]["value"],
+        "api_base_url": all_settings["API_BASE_URL"]["value"],
+        "models": all_settings["MODELS"]["value"],
+        "api_token_set": all_settings["API_TOKEN"]["value"] == "***set***",
+        "openai_key_set": all_settings["OPENAI_KEY"]["value"]
+        != "your_openrouter_api_key"
+        and bool(all_settings["OPENAI_KEY"]["value"]),
         "all_settings": all_settings,
     }
 
@@ -435,12 +449,14 @@ def system_info_api():
     import flask
     import sqlalchemy
 
-    return jsonify({
-        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        "flask_version": flask.__version__,
-        "sqlalchemy_version": sqlalchemy.__version__,
-        "apscheduler_version": apscheduler.__version__,
-    })
+    return jsonify(
+        {
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            "flask_version": flask.__version__,
+            "sqlalchemy_version": sqlalchemy.__version__,
+            "apscheduler_version": apscheduler.__version__,
+        }
+    )
 
 
 @admin_bp.route("/api/save-config", methods=["POST"])
@@ -450,36 +466,38 @@ def save_config_api():
         data = request.get_json()
 
         # Save configuration values to database
-        if data.get('openai_api_url'):
-            Config.set('OPENAI_API_URL', data['openai_api_url'].rstrip('/'))
-        if data.get('openai_key'):
-            Config.set('OPENAI_KEY', data['openai_key'])
-        if data.get('openai_model'):
-            Config.set('OPENAI_MODEL', data['openai_model'])
-        if data.get('api_base_url'):
-            Config.set('API_BASE_URL', data['api_base_url'].rstrip('/'))
-        if data.get('models'):
-            Config.set('MODELS', data['models'])
+        if data.get("openai_api_url"):
+            Config.set("OPENAI_API_URL", data["openai_api_url"].rstrip("/"))
+        if data.get("openai_key"):
+            Config.set("OPENAI_KEY", data["openai_key"])
+        if data.get("openai_model"):
+            Config.set("OPENAI_MODEL", data["openai_model"])
+        if data.get("api_base_url"):
+            Config.set("API_BASE_URL", data["api_base_url"].rstrip("/"))
+        if data.get("models"):
+            Config.set("MODELS", data["models"])
 
         # Return updated config
         config = {
             "openai_api_url": Config.get("OPENAI_API_URL", "Not set"),
             "openai_model": Config.get("OPENAI_MODEL", "Not set"),
             "api_base_url": Config.get("API_BASE_URL", "Not set"),
-            "openai_key_set": bool(Config.get("OPENAI_KEY")) and Config.get("OPENAI_KEY") != 'your_openrouter_api_key',
+            "openai_key_set": bool(Config.get("OPENAI_KEY"))
+            and Config.get("OPENAI_KEY") != "your_openrouter_api_key",
         }
 
-        return jsonify({
-            "success": True,
-            "message": "Configuration saved to database successfully",
-            "config": config
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": "Configuration saved to database successfully",
+                "config": config,
+            }
+        )
 
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Failed to save configuration: {str(e)}"
-        })
+        return jsonify(
+            {"success": False, "message": f"Failed to save configuration: {str(e)}"}
+        )
 
 
 @admin_bp.route("/api/test-connection", methods=["POST"])
@@ -490,61 +508,77 @@ def test_connection_api():
 
     try:
         data = request.get_json()
-        api_url = data.get('api_url')
-        api_key = data.get('api_key')
+        api_url = data.get("api_url")
+        api_key = data.get("api_key")
 
         if not api_url:
-            return jsonify({
-                "success": False,
-                "message": "API URL is required",
-                "status_code": None
-            })
+            return jsonify(
+                {
+                    "success": False,
+                    "message": "API URL is required",
+                    "status_code": None,
+                }
+            )
 
         # If no API key provided or masked key, try to use saved environment variable
-        if not api_key or api_key == '••••••••••••••••':
-            api_key = Config.get('OPENAI_KEY')
+        if not api_key or api_key == "••••••••••••••••":
+            api_key = Config.get("OPENAI_KEY")
             if not api_key:
-                return jsonify({
-                    "success": False,
-                    "message": "API key is required. Please enter a key or save one in settings first.",
-                    "status_code": None
-                })
+                return jsonify(
+                    {
+                        "success": False,
+                        "message": "API key is required. Please enter a key or save one in settings first.",
+                        "status_code": None,
+                    }
+                )
 
         # Test connection to AI service
         headers = {"Authorization": f"Bearer {api_key}"}
-        response = requests.get(f"{api_url.rstrip('/')}/models", headers=headers, timeout=10)
+        response = requests.get(
+            f"{api_url.rstrip('/')}/models", headers=headers, timeout=10
+        )
 
         if response.status_code == 200:
-            return jsonify({
-                "success": True,
-                "message": "Connection successful! AI service is reachable.",
-                "status_code": response.status_code
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Connection successful! AI service is reachable.",
+                    "status_code": response.status_code,
+                }
+            )
         else:
-            return jsonify({
-                "success": False,
-                "message": "AI service returned an error response",
-                "status_code": response.status_code
-            })
+            return jsonify(
+                {
+                    "success": False,
+                    "message": "AI service returned an error response",
+                    "status_code": response.status_code,
+                }
+            )
 
     except requests.exceptions.ConnectionError:
-        return jsonify({
-            "success": False,
-            "message": "Cannot connect to AI service. Check API URL.",
-            "status_code": None
-        })
+        return jsonify(
+            {
+                "success": False,
+                "message": "Cannot connect to AI service. Check API URL.",
+                "status_code": None,
+            }
+        )
     except requests.exceptions.Timeout:
-        return jsonify({
-            "success": False,
-            "message": "Connection timeout. AI service may be slow or unreachable.",
-            "status_code": None
-        })
+        return jsonify(
+            {
+                "success": False,
+                "message": "Connection timeout. AI service may be slow or unreachable.",
+                "status_code": None,
+            }
+        )
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Connection test failed: {str(e)}",
-            "status_code": None
-        })
+        return jsonify(
+            {
+                "success": False,
+                "message": f"Connection test failed: {str(e)}",
+                "status_code": None,
+            }
+        )
 
 
 @admin_bp.route("/api/load-models", methods=["POST"])
@@ -554,64 +588,63 @@ def load_models_api():
 
     try:
         data = request.get_json()
-        api_url = data.get('api_url')
-        api_key = data.get('api_key')
+        api_url = data.get("api_url")
+        api_key = data.get("api_key")
 
         if not api_url:
-            return jsonify({
-                "success": False,
-                "message": "API URL is required"
-            })
+            return jsonify({"success": False, "message": "API URL is required"})
 
         # If no API key provided or masked key, try to use saved environment variable
-        if not api_key or api_key == '••••••••••••••••':
-            api_key = Config.get('OPENAI_KEY')
+        if not api_key or api_key == "••••••••••••••••":
+            api_key = Config.get("OPENAI_KEY")
             if not api_key:
-                return jsonify({
-                    "success": False,
-                    "message": "API key is required. Please enter a key or save one in settings first."
-                })
+                return jsonify(
+                    {
+                        "success": False,
+                        "message": "API key is required. Please enter a key or save one in settings first.",
+                    }
+                )
 
         # Get models from AI service
         headers = {"Authorization": f"Bearer {api_key}"}
-        response = requests.get(f"{api_url.rstrip('/')}/models", headers=headers, timeout=10)
+        response = requests.get(
+            f"{api_url.rstrip('/')}/models", headers=headers, timeout=10
+        )
 
         if response.status_code == 200:
             models_data = response.json()
 
             # Extract model names from response
             models = []
-            if 'data' in models_data:
-                models = [model.get('id', 'Unknown') for model in models_data['data']]
-            elif 'models' in models_data:
-                models = [model.get('id', model.get('name', 'Unknown')) for model in models_data['models']]
+            if "data" in models_data:
+                models = [model.get("id", "Unknown") for model in models_data["data"]]
+            elif "models" in models_data:
+                models = [
+                    model.get("id", model.get("name", "Unknown"))
+                    for model in models_data["models"]
+                ]
 
-            return jsonify({
-                "success": True,
-                "models": models,
-                "message": f"Found {len(models)} models"
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "models": models,
+                    "message": f"Found {len(models)} models",
+                }
+            )
         else:
-            return jsonify({
-                "success": False,
-                "message": f"Failed to load models: HTTP {response.status_code}"
-            })
+            return jsonify(
+                {
+                    "success": False,
+                    "message": f"Failed to load models: HTTP {response.status_code}",
+                }
+            )
 
     except requests.exceptions.ConnectionError:
-        return jsonify({
-            "success": False,
-            "message": "Cannot connect to AI service"
-        })
+        return jsonify({"success": False, "message": "Cannot connect to AI service"})
     except requests.exceptions.Timeout:
-        return jsonify({
-            "success": False,
-            "message": "Connection timeout"
-        })
+        return jsonify({"success": False, "message": "Connection timeout"})
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Error loading models: {str(e)}"
-        })
+        return jsonify({"success": False, "message": f"Error loading models: {str(e)}"})
 
 
 @admin_bp.route("/api/clear-jobs", methods=["POST"])
@@ -627,18 +660,19 @@ def clear_jobs_api():
 
         logger.info(f"Cleared {job_count} jobs from history")
 
-        return jsonify({
-            "success": True,
-            "message": f"Successfully cleared {job_count} jobs from history"
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Successfully cleared {job_count} jobs from history",
+            }
+        )
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Failed to clear jobs history: {e}")
-        return jsonify({
-            "success": False,
-            "message": f"Failed to clear jobs history: {str(e)}"
-        })
+        return jsonify(
+            {"success": False, "message": f"Failed to clear jobs history: {str(e)}"}
+        )
 
 
 @admin_bp.route("/api/load-default-data", methods=["POST"])
@@ -649,9 +683,9 @@ def load_default_data_api():
 
     try:
         # Get paths to the data files
-        data_dir = os.path.join(os.path.dirname(__file__), 'data')
-        subdeaddits_file = os.path.join(data_dir, 'subdeaddits_base.json')
-        users_file = os.path.join(data_dir, 'users.json')
+        data_dir = os.path.join(os.path.dirname(__file__), "data")
+        subdeaddits_file = os.path.join(data_dir, "subdeaddits_base.json")
+        users_file = os.path.join(data_dir, "users.json")
 
         subdeaddits_loaded = 0
         users_loaded = 0
@@ -661,16 +695,18 @@ def load_default_data_api():
             with open(subdeaddits_file) as f:
                 subdeaddits_data = json.load(f)
 
-            for subdeaddit_data in subdeaddits_data.get('subdeaddits', []):
+            for subdeaddit_data in subdeaddits_data.get("subdeaddits", []):
                 # Check if subdeaddit already exists
-                existing = Subdeaddit.query.filter_by(name=subdeaddit_data['name']).first()
+                existing = Subdeaddit.query.filter_by(
+                    name=subdeaddit_data["name"]
+                ).first()
                 if not existing:
                     subdeaddit = Subdeaddit(
-                        name=subdeaddit_data['name'],
-                        description=subdeaddit_data['description']
+                        name=subdeaddit_data["name"],
+                        description=subdeaddit_data["description"],
                     )
                     # Use the helper method to properly set post_types as JSON
-                    subdeaddit.set_post_types(subdeaddit_data.get('post_types', []))
+                    subdeaddit.set_post_types(subdeaddit_data.get("post_types", []))
                     db.session.add(subdeaddit)
                     subdeaddits_loaded += 1
 
@@ -681,21 +717,27 @@ def load_default_data_api():
             with open(users_file) as f:
                 users_data = json.load(f)
 
-            for user_data in users_data.get('users', [])[:50]:  # Limit to first 50 users
+            for user_data in users_data.get("users", [])[
+                :50
+            ]:  # Limit to first 50 users
                 # Check if user already exists
-                existing = User.query.filter_by(username=user_data['username']).first()
+                existing = User.query.filter_by(username=user_data["username"]).first()
                 if not existing:
                     user = User(
-                        username=user_data['username'],
-                        bio=user_data['bio'],
-                        age=user_data['age'],
-                        gender=user_data['gender'],
-                        education=user_data['education'],
-                        occupation=user_data['occupation'],
-                        interests=json.dumps(user_data['interests']),  # Convert list to JSON string
-                        personality_traits=json.dumps(user_data['personality_traits']),  # Convert list to JSON string
-                        writing_style=user_data['writing_style'],
-                        model=user_data.get('model', 'default')
+                        username=user_data["username"],
+                        bio=user_data["bio"],
+                        age=user_data["age"],
+                        gender=user_data["gender"],
+                        education=user_data["education"],
+                        occupation=user_data["occupation"],
+                        interests=json.dumps(
+                            user_data["interests"]
+                        ),  # Convert list to JSON string
+                        personality_traits=json.dumps(
+                            user_data["personality_traits"]
+                        ),  # Convert list to JSON string
+                        writing_style=user_data["writing_style"],
+                        model=user_data.get("model", "default"),
                     )
                     db.session.add(user)
                     users_loaded += 1
@@ -706,22 +748,23 @@ def load_default_data_api():
         db.session.commit()
 
         # Mark default data as loaded
-        Config.set('DEFAULT_DATA_LOADED', 'true')
+        Config.set("DEFAULT_DATA_LOADED", "true")
 
-        return jsonify({
-            "success": True,
-            "message": f"Successfully loaded {subdeaddits_loaded} subdeaddits and {users_loaded} users",
-            "subdeaddits_loaded": subdeaddits_loaded,
-            "users_loaded": users_loaded
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Successfully loaded {subdeaddits_loaded} subdeaddits and {users_loaded} users",
+                "subdeaddits_loaded": subdeaddits_loaded,
+                "users_loaded": users_loaded,
+            }
+        )
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Failed to load default data: {e}")
-        return jsonify({
-            "success": False,
-            "message": f"Failed to load default data: {str(e)}"
-        })
+        return jsonify(
+            {"success": False, "message": f"Failed to load default data: {str(e)}"}
+        )
 
 
 @admin_bp.route("/api/hide-default-data", methods=["POST"])
@@ -729,16 +772,17 @@ def hide_default_data_api():
     """API endpoint to hide the default data section permanently."""
     try:
         # Mark default data as loaded to hide the section
-        Config.set('DEFAULT_DATA_LOADED', 'true')
+        Config.set("DEFAULT_DATA_LOADED", "true")
 
-        return jsonify({
-            "success": True,
-            "message": "Default data section will no longer be shown"
-        })
+        return jsonify(
+            {"success": True, "message": "Default data section will no longer be shown"}
+        )
 
     except Exception as e:
         logger.error(f"Failed to hide default data section: {e}")
-        return jsonify({
-            "success": False,
-            "message": f"Failed to hide default data section: {str(e)}"
-        })
+        return jsonify(
+            {
+                "success": False,
+                "message": f"Failed to hide default data section: {str(e)}",
+            }
+        )

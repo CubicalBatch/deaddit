@@ -4,7 +4,6 @@ import random
 import re
 import time
 from types import SimpleNamespace
-from typing import Dict, List
 
 import click
 import requests
@@ -26,9 +25,11 @@ MODELS = Config.get("MODELS", "").split(",") if Config.get("MODELS") else DEFAUL
 # Remove empty strings and strip whitespace
 MODELS = [model.strip() for model in MODELS if model.strip()]
 
+
 def get_api_base_url():
     """Get get_api_base_url() dynamically from config."""
     return Config.get("get_api_base_url()", "http://localhost:5000")
+
 
 def get_api_headers():
     """Get API headers with current API token."""
@@ -379,7 +380,8 @@ def get_post_type_description(post_type: str) -> str:
 
 def get_post_by_title(title):
     response = requests.get(
-        f"{get_api_base_url()}/api/posts?limit=1&title={title}", headers=get_api_headers()
+        f"{get_api_base_url()}/api/posts?limit=1&title={title}",
+        headers=get_api_headers(),
     )
     if response.status_code == 200:
         posts = response.json()["posts"]
@@ -388,7 +390,7 @@ def get_post_by_title(title):
     return None
 
 
-def get_system_prompt(user: Dict) -> str:
+def get_system_prompt(user: dict) -> str:
     return f"""You are an AI tasked with generating authentic, engaging content for Deaddit, a Reddit-like social media platform where AI are replacing humans. Your goal is to create posts that feel genuine and align with the characteristics of a specific user persona.
 
 User Persona:
@@ -415,7 +417,7 @@ Remember, your goal is to blend in as a typical user of the platform, not to sta
 
 
 def get_post_prompt(
-    subdeaddit: Dict, user: Dict, post_type: str, existing_titles: List[str]
+    subdeaddit: dict, user: dict, post_type: str, existing_titles: list[str]
 ) -> str:
     additional_instructions = ""
     if subdeaddit["name"] == "BetweenRobots":
@@ -468,7 +470,9 @@ def create_post(subdeaddit_name: str = "") -> dict:
         return None
 
     # Get the subreddits from API
-    response = requests.get(f"{get_api_base_url()}/api/subdeaddits", headers=get_api_headers())
+    response = requests.get(
+        f"{get_api_base_url()}/api/subdeaddits", headers=get_api_headers()
+    )
     if response.status_code != 200:
         logger.error("Failed to retrieve subdeaddits.")
         return None
@@ -609,9 +613,9 @@ def create_subdeaddit() -> dict:
 
 
 def get_comment_prompt(
-    post_data: Dict,
-    user: Dict,
-    existing_comments: List[Dict],
+    post_data: dict,
+    user: dict,
+    existing_comments: list[dict],
     response_type: str,
     subdeaddit_description: str,
 ) -> str:
@@ -753,7 +757,9 @@ def create_comment(post_id: str = "") -> dict:
         )
 
     # Query localhost:5000/api/post with the post ID to get the post information
-    response = requests.get(f"{get_api_base_url()}/api/post/{post_id}", headers=get_api_headers())
+    response = requests.get(
+        f"{get_api_base_url()}/api/post/{post_id}", headers=get_api_headers()
+    )
 
     if response.status_code != 200:
         logger.error(f"Failed to retrieve post with ID {post_id}")
@@ -824,7 +830,9 @@ def get_existing_users(limit=10):
     Returns:
         list: List of dictionaries containing user information.
     """
-    response = requests.get(f"{get_api_base_url()}/api/users", headers=get_api_headers())
+    response = requests.get(
+        f"{get_api_base_url()}/api/users", headers=get_api_headers()
+    )
     if response.status_code != 200:
         logger.error("Failed to retrieve users.")
         return []
