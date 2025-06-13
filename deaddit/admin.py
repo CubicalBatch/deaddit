@@ -4,10 +4,18 @@ Provides web-based UI for job management and content generation.
 """
 
 from datetime import datetime, timedelta
-
 from functools import wraps
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from loguru import logger
 from sqlalchemy import desc
 
@@ -35,15 +43,15 @@ def admin_required(f):
         # Get API_TOKEN from environment
         import os
         api_token = os.environ.get("API_TOKEN")
-        
+
         # If no API_TOKEN is set, allow access
         if not api_token:
             return f(*args, **kwargs)
-        
+
         # Check if user is authenticated
-        if session.get("admin_authenticated") != True:
+        if not session.get("admin_authenticated"):
             return redirect(url_for("admin.login"))
-        
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -53,14 +61,14 @@ def login():
     """Admin login page."""
     import os
     api_token = os.environ.get("API_TOKEN")
-    
+
     # If no API_TOKEN is set, redirect to dashboard
     if not api_token:
         return redirect(url_for("admin.dashboard"))
-    
+
     if request.method == "POST":
         provided_token = request.form.get("api_token")
-        
+
         if provided_token == api_token:
             session["admin_authenticated"] = True
             session.permanent = True
@@ -68,7 +76,7 @@ def login():
             return redirect(url_for("admin.dashboard"))
         else:
             flash("Invalid API token.", "error")
-    
+
     return render_template("admin/login.html")
 
 
