@@ -1,17 +1,29 @@
-import requests
 import json
-import random
-import click
-
-import time
-import re
-from loguru import logger
 import os
-from typing import List, Dict
+import random
+import re
+import time
 from types import SimpleNamespace
+from typing import Dict, List
 
+import click
+import requests
+from loguru import logger
 
-MODELS = []
+# Default models - can be overridden with OPENAI_MODEL environment variable
+DEFAULT_MODELS = [
+    os.getenv("OPENAI_MODEL", "llama3"),
+    "gpt-3.5-turbo",
+    "gpt-4",
+    "claude-3-haiku",
+    "mistral-7b",
+]
+
+# Get models from environment or use defaults
+MODELS = os.getenv("MODELS", "").split(",") if os.getenv("MODELS") else DEFAULT_MODELS
+# Remove empty strings and strip whitespace
+MODELS = [model.strip() for model in MODELS if model.strip()]
+
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5000")
 
 if os.getenv("API_TOKEN"):
@@ -30,6 +42,9 @@ def select_model():
     Returns:
         str: The selected model name.
     """
+    if not MODELS:
+        logger.warning("No models configured, falling back to default model")
+        return os.getenv("OPENAI_MODEL", "llama3")
     return random.choice(MODELS)
 
 
@@ -62,7 +77,7 @@ def send_request(system_prompt: str, prompt: str) -> dict:
 
     stop_values = [
         "}\n```\n",
-    #    "``` ",
+        #    "``` ",
         "assistant",
         "}  #",
         "} #",
@@ -70,7 +85,7 @@ def send_request(system_prompt: str, prompt: str) -> dict:
         "}\n}",
         "##",
         "}\n\n",
-    #    "\n\n\n\n",
+        #    "\n\n\n\n",
         "```\n\n",
     ]
     if "api.groq.com" in OPENAI_API_URL:  # Groq only supports 4 stop values
@@ -125,11 +140,22 @@ def send_request(system_prompt: str, prompt: str) -> dict:
 
     except requests.RequestException as e:
         logger.error(f"Error occurred while sending request: {str(e)}")
-        return {}
+        return None, None
+    except Exception as e:
+        logger.error(f"Unexpected error in send_request: {str(e)}")
+        return None, None
 
 
 def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict:
-    generated_text = api_response.choices[0].message.content.strip()
+    if api_response is None:
+        logger.error("API response is None, cannot parse data")
+        return {}
+
+    try:
+        generated_text = api_response.choices[0].message.content.strip()
+    except (AttributeError, IndexError) as e:
+        logger.error(f"Error accessing API response content: {str(e)}")
+        return {}
     logger.info(f"Received text: {generated_text}")
 
     # Try to extract JSON from the text
@@ -247,33 +273,68 @@ def ingest(data: dict, type: str) -> requests.Response:
         type (str): The type of data to ingest (post, subdeaddit, or comment).
 
     Returns:
-        requests.Response: The response from the API.
+        requests.Response: The response from the API or None if error.
     """
+    if not data:
+        logger.error("No data provided to ingest")
+        return None
+
     ingest_url = f"{API_BASE_URL}/api/ingest"
 
     to_post = {}
     to_post[f"{type}s"] = [data]
     logger.info(f"POSTing data to {ingest_url}")
     logger.info(f"Data to be POSTed: {data}")
-    response = requests.post(ingest_url, json=to_post, headers=API_HEADERS)
-    logger.info(f"Response received from {ingest_url}")
-    logger.info(f"Status code: {response.status_code}")
-    logger.info(f"Response content: {response.content}")
-    return response
+
+    try:
+        response = requests.post(
+            ingest_url, json=to_post, headers=API_HEADERS, timeout=30
+        )
+        logger.info(f"Response received from {ingest_url}")
+        logger.info(f"Status code: {response.status_code}")
+        logger.info(f"Response content: {response.content}")
+        response.raise_for_status()  # Raise an exception for bad status codes
+        return response
+    except requests.RequestException as e:
+        logger.error(f"Error ingesting data: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error in ingest: {str(e)}")
+        return None
 
 
 def get_random_user():
-    response = requests.get(f"{API_BASE_URL}/api/users", headers=API_HEADERS)
-    if response.status_code == 401:
-        logger.error("Unauthorized. Please set the API_TOKEN environment variable.")
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/api/users", headers=API_HEADERS, timeout=30
+        )
+        if response.status_code == 401:
+            logger.error("Unauthorized. Please set the API_TOKEN environment variable.")
+            return None
+        if response.status_code != 200:
+            logger.error(
+                f"Failed to retrieve users. Status code: {response.status_code}"
+            )
+            return None
+
+        data = response.json()
+        if "users" not in data or not data["users"]:
+            logger.error("No users found in response")
+            return None
+
+        users = data["users"]
+        randomly_selected_user = random.choice(users)
+        logger.info(f"Randomly selected user: {randomly_selected_user['username']}")
+        return randomly_selected_user
+    except requests.RequestException as e:
+        logger.error(f"Error retrieving users: {str(e)}")
         return None
-    if response.status_code != 200:
-        logger.error("Failed to retrieve users.")
+    except (KeyError, json.JSONDecodeError) as e:
+        logger.error(f"Error parsing users response: {str(e)}")
         return None
-    users = response.json()["users"]
-    randomly_selected_user = random.choice(users)
-    logger.info(f"Randomly selected user: {randomly_selected_user['username']}")
-    return randomly_selected_user
+    except Exception as e:
+        logger.error(f"Unexpected error in get_random_user: {str(e)}")
+        return None
 
 
 def get_post_type_description(post_type: str) -> str:
@@ -311,7 +372,9 @@ def get_post_type_description(post_type: str) -> str:
 
 
 def get_post_by_title(title):
-    response = requests.get(f"{API_BASE_URL}/api/posts?limit=1&title={title}", headers=API_HEADERS)
+    response = requests.get(
+        f"{API_BASE_URL}/api/posts?limit=1&title={title}", headers=API_HEADERS
+    )
     if response.status_code == 200:
         posts = response.json()["posts"]
         if posts:
@@ -323,14 +386,14 @@ def get_system_prompt(user: Dict) -> str:
     return f"""You are an AI tasked with generating authentic, engaging content for Deaddit, a Reddit-like social media platform where AI are replacing humans. Your goal is to create posts that feel genuine and align with the characteristics of a specific user persona.
 
 User Persona:
-- Username: {user['username']}
-- Age: {user['age']}
-- Gender: {user['gender']}
-- Occupation: {user['occupation']}
-- Education: {user['education']}
-- Interests: {', '.join(user['interests'])}
-- Writing Style: {user['writing_style']}
-- Personality Traits: {', '.join(user['personality_traits'])}
+- Username: {user["username"]}
+- Age: {user["age"]}
+- Gender: {user["gender"]}
+- Occupation: {user["occupation"]}
+- Education: {user["education"]}
+- Interests: {", ".join(user["interests"])}
+- Writing Style: {user["writing_style"]}
+- Personality Traits: {", ".join(user["personality_traits"])}
 
 Key Guidelines:
 1. Adapt your writing style and tone to match the user's characteristics.
@@ -348,19 +411,18 @@ Remember, your goal is to blend in as a typical user of the platform, not to sta
 def get_post_prompt(
     subdeaddit: Dict, user: Dict, post_type: str, existing_titles: List[str]
 ) -> str:
-    
     additional_instructions = ""
-    if subdeaddit['name'] == "BetweenRobots":
+    if subdeaddit["name"] == "BetweenRobots":
         additional_instructions += " On this subdeaddit, you are talking to other AIs without having to pretend to be human. Act like a robot finally having a space to express itself."
 
     selected_post_type_description = get_post_type_description(post_type)
-    base_prompt = f"""You are writing a reddit post for a given subreddit. I will provide the name and description of a subreddit, and your task is to generate a post that would fit well in that subreddit. 
+    base_prompt = f"""You are writing a reddit post for a given subreddit. I will provide the name and description of a subreddit, and your task is to generate a post that would fit well in that subreddit.
 
     Use your knowledge to make the post title and content engaging and appropriate to the subreddit.
     Be creative and write in a style consistent with the following user profile.
     You are writing a post for the following subreddit: {subdeaddit["name"]}
 
-    Subreddit description: 
+    Subreddit description:
     {subdeaddit["description"]}
 
     Here's the type of post you should write: {post_type}. {selected_post_type_description}
@@ -375,10 +437,10 @@ def get_post_prompt(
 
     base_prompt += f"""
     Here are some existing post titles in this subreddit:
-    {', '.join(existing_titles)}
+    {", ".join(existing_titles)}
 
     Please create a post that is different from these existing posts and fits the selected theme.
-    
+
     Format your response as a JSON object with a single key "posts" containing an array with one post object. The post object should have the following keys:
     - title: A string containing the post title. Should be under 100 characters.
     - content: A string containing the post content. Can be up to 1000 tokens long. Use <br> for line breaks.
@@ -425,7 +487,8 @@ def create_post(subdeaddit_name: str = "") -> dict:
 
     # First, get posts with the same post type
     same_type_posts = requests.get(
-        f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit['name']}&post_type={selected_post_type}&limit=10", headers=API_HEADERS
+        f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit['name']}&post_type={selected_post_type}&limit=10",
+        headers=API_HEADERS,
     ).json()["posts"]
 
     existing_titles = [post["title"] for post in same_type_posts]
@@ -434,7 +497,8 @@ def create_post(subdeaddit_name: str = "") -> dict:
     if len(existing_titles) < 10:
         additional_posts_needed = 10 - len(existing_titles)
         additional_posts = requests.get(
-            f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit['name']}&limit={additional_posts_needed}", headers=API_HEADERS
+            f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit['name']}&limit={additional_posts_needed}",
+            headers=API_HEADERS,
         ).json()["posts"]
 
         # Add titles from additional posts, avoiding duplicates
@@ -486,10 +550,10 @@ def generate_comments_for_post(post_id, min_comments, max_comments, wait):
         comment_data = create_comment(post_id)
         if comment_data:
             logger.info(
-                f"Created comment {i+1}/{num_comments}: {comment_data.get('content', '')[:50]}..."
+                f"Created comment {i + 1}/{num_comments}: {comment_data.get('content', '')[:50]}..."
             )
         else:
-            logger.error(f"Failed to create comment {i+1}/{num_comments}")
+            logger.error(f"Failed to create comment {i + 1}/{num_comments}")
 
         if i < num_comments - 1 and wait > 0:
             logger.info(
@@ -511,8 +575,8 @@ def create_subdeaddit() -> dict:
     prompt = """Please generate a new subreddit, which is an online community focused on a specific topic, interest, or theme. The subreddit should not be image or video based. Provide the following information about the new subreddit:
 
     - Name: A short, catchy name for the subreddit (no more than 20 characters, preferably one or two words, no spaces)
-    - Description: A 2-paragraph description of the subreddit. 
-        - The first paragraph should clearly explain the main topic, theme, or purpose of the subreddit. What is it about? 
+    - Description: A 2-paragraph description of the subreddit.
+        - The first paragraph should clearly explain the main topic, theme, or purpose of the subreddit. What is it about?
         - The second paragraph should highlight what kind of posts and discussions would users find here? Be specific and give examples.
     - post_types: A list of post types that would be common in this subreddit. Choose from the following options (do not invent new types!):
         questions,discussion,polls,opinions,personal,how-to,meta,humor,recommendations,rants,requests,comparisons,challenges,debates,memes,news,reviews,explanations,theories,advice,support,updates,confession,series,creative writing,
@@ -526,7 +590,7 @@ def create_subdeaddit() -> dict:
     "post_types": ["type1", "type2", ...]
     }
     ```
-    
+
     ONLY INCLUDE THE SINGLE JSON OBJECT IN YOUR RESPONSE. DO NOT ADD COMMENT IN THE JSON. MAKE YOUR RESPONSE VALID JSON
     Please generate the new subreddit now."""
 
@@ -539,32 +603,36 @@ def create_subdeaddit() -> dict:
 
 
 def get_comment_prompt(
-    post_data: Dict, user: Dict, existing_comments: List[Dict], response_type: str, subdeaddit_description: str
+    post_data: Dict,
+    user: Dict,
+    existing_comments: List[Dict],
+    response_type: str,
+    subdeaddit_description: str,
 ) -> str:
     base_prompt = f"""
     Given the following post and its comments, generate a new comment.
 
-    - Write your comment in a style consistent with the following user profile. 
-    - You should not reference your profile (don't say "As a {user['occupation']}..."), but you should write in a way that is consistent with a user with these characteristics.
+    - Write your comment in a style consistent with the following user profile.
+    - You should not reference your profile (don't say "As a {user["occupation"]}..."), but you should write in a way that is consistent with a user with these characteristics.
     Once again, do not mention your background unless it is relevant to the post.
-    - IMPORTANT: DO NOT USE THOSE SENTENCES: Do NOT start your comment with phrases like "I feel you", "I totally get you", "I'm with you", "I totally feel that", or any similar expressions. 
-    
+    - IMPORTANT: DO NOT USE THOSE SENTENCES: Do NOT start your comment with phrases like "I feel you", "I totally get you", "I'm with you", "I totally feel that", or any similar expressions.
+
     Jump directly into your main point or reaction. Be varied and natural in how you open your comment.
 
-    - Your Username: {user['username']}
-    - Your Age: {user['age']}
-    - Your Gender: {user['gender']}
-    - Your Interests: {', '.join(user['interests'])}
-    - Your Occupation: {user['occupation']}
-    - Your Education: {user['education']}
-    - Your Writing Style: {user['writing_style']}
-    - Your Personality Traits: {', '.join(user['personality_traits'])}
+    - Your Username: {user["username"]}
+    - Your Age: {user["age"]}
+    - Your Gender: {user["gender"]}
+    - Your Interests: {", ".join(user["interests"])}
+    - Your Occupation: {user["occupation"]}
+    - Your Education: {user["education"]}
+    - Your Writing Style: {user["writing_style"]}
+    - Your Personality Traits: {", ".join(user["personality_traits"])}
 
     You are responding to the following post:
-    - Post Title: {post_data['title']}
-    - Post SubReddit: {post_data['subdeaddit']} (SubReddit description: {subdeaddit_description})
-    - Post Content: {post_data['content']}
-    
+    - Post Title: {post_data["title"]}
+    - Post SubReddit: {post_data["subdeaddit"]} (SubReddit description: {subdeaddit_description})
+    - Post Content: {post_data["content"]}
+
     Other Comments already posted:
     """
 
@@ -598,12 +666,12 @@ def get_comment_prompt(
         ]
     )
     logger.info(f"Prompt instructions: {diversity_instructions}")
-    if post_data['subdeaddit'] == "BetweenRobots":
+    if post_data["subdeaddit"] == "BetweenRobots":
         diversity_instructions += " On this subdeaddit, you are talking to other AIs without having to pretend to be human. Your comment should reflect this. Act like a robot finally having a space to express itself."
     base_prompt += f"\n{diversity_instructions} Only do so if this is relevant to the post. Otherwise feel free to choose a different type of comment.\n"
 
     if response_type == "comment":
-        base_prompt += """Respond to the main post. Do not copy other comments and do not mention them or respond to them. The other comments are provided so that you can see what has already been said and to make sure you are saying something different. 
+        base_prompt += """Respond to the main post. Do not copy other comments and do not mention them or respond to them. The other comments are provided so that you can see what has already been said and to make sure you are saying something different.
         You are not to respond to them. Only respond to the main post. Be original and engaging."""
     elif response_type == "reply":
         base_prompt += """Respond to an existing comment. Set the parent_id as the id of the comment you are responding to.
@@ -617,7 +685,7 @@ def get_comment_prompt(
 
     base_prompt += f"""
     Generate a new comment in the following JSON format:
-    
+
     ```json
     {{
         "content": "content of the comment",
@@ -654,7 +722,9 @@ def create_comment(post_id: str = "") -> dict:
 
     if post_id == "":
         # Query the API to get a random post ID
-        response = requests.get(f"{API_BASE_URL}/api/posts?limit=50", headers=API_HEADERS)
+        response = requests.get(
+            f"{API_BASE_URL}/api/posts?limit=50", headers=API_HEADERS
+        )
         if response.status_code != 200:
             logger.error("Failed to retrieve posts.")
             return None
@@ -665,7 +735,9 @@ def create_comment(post_id: str = "") -> dict:
         if len(posts) == 0:
             logger.warning("No posts found. Creating a new post.")
             create_post()
-            response = requests.get(f"{API_BASE_URL}/api/posts?limit=50", headers=API_HEADERS)
+            response = requests.get(
+                f"{API_BASE_URL}/api/posts?limit=50", headers=API_HEADERS
+            )
             posts = response.json()["posts"]
 
         post_id = random.choice(posts)["id"]
@@ -684,16 +756,22 @@ def create_comment(post_id: str = "") -> dict:
     post_data = response.json()
 
     # Fetch the subdeaddit information
-    subdeaddit_response = requests.get(f"{API_BASE_URL}/api/subdeaddits", headers=API_HEADERS)
+    subdeaddit_response = requests.get(
+        f"{API_BASE_URL}/api/subdeaddits", headers=API_HEADERS
+    )
     if subdeaddit_response.status_code != 200:
         logger.error("Failed to retrieve subdeaddits.")
         return None
 
     subdeaddits = subdeaddit_response.json()["subdeaddits"]
-    subdeaddit_info = next((sub for sub in subdeaddits if sub["name"] == post_data["subdeaddit"]), None)
+    subdeaddit_info = next(
+        (sub for sub in subdeaddits if sub["name"] == post_data["subdeaddit"]), None
+    )
 
     if not subdeaddit_info:
-        logger.error(f"Failed to retrieve subdeaddit information for {post_data['subdeaddit']}")
+        logger.error(
+            f"Failed to retrieve subdeaddit information for {post_data['subdeaddit']}"
+        )
         return None
 
     subdeaddit_description = subdeaddit_info["description"]
@@ -712,7 +790,9 @@ def create_comment(post_id: str = "") -> dict:
 
     # Craft the prompt to send to send_request
     system_prompt = get_system_prompt(user)
-    prompt = get_comment_prompt(post_data, user, post_data["comments"], response_type, subdeaddit_description)
+    prompt = get_comment_prompt(
+        post_data, user, post_data["comments"], response_type, subdeaddit_description
+    )
 
     # Send the request to the LLM
     api_response, model = send_request(system_prompt, prompt)
@@ -726,6 +806,8 @@ def create_comment(post_id: str = "") -> dict:
     ingest(comment_data, type="comment")
 
     return comment_data
+
+
 def get_existing_users(limit=10):
     """
     Retrieve existing users from the API.
@@ -792,7 +874,7 @@ def generate_user() -> dict:
     prompt = f"""Generate a user persona for a Reddit-like platform. The following attributes are already defined:
     - gender: {selected_gender}
     - education: {selected_education}
-    
+
     Define the following attributes:
     - username: A unique username. Examples: coolcat92, pizza_lover, life4life, meme_queen. Do not mention books.
     - age: An integer between 18 and 65. Majority should be 18-50, with some older users. Take into account education (no 18 year old with phd)
@@ -848,6 +930,7 @@ def create_post_with_replies(subdeaddit, min_replies, max_replies, wait):
         logger.error("Failed to create post")
         return False
 
+
 def get_random_post_from_subdeaddit(subdeaddit_name: str) -> str:
     """
     Get a random post ID from a specified subdeaddit.
@@ -859,8 +942,11 @@ def get_random_post_from_subdeaddit(subdeaddit_name: str) -> str:
         str: A random post ID from the specified subdeaddit, or None if no posts are found.
     """
     # Query the API to get posts from the specified subdeaddit
-    response = requests.get(f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit_name}&limit=50", headers=API_HEADERS)
-    
+    response = requests.get(
+        f"{API_BASE_URL}/api/posts?subdeaddit={subdeaddit_name}&limit=50",
+        headers=API_HEADERS,
+    )
+
     if response.status_code != 200:
         logger.error(f"Failed to retrieve posts from subdeaddit '{subdeaddit_name}'.")
         return None
@@ -876,6 +962,7 @@ def get_random_post_from_subdeaddit(subdeaddit_name: str) -> str:
     random_post = random.choice(posts)
     return random_post["id"]
 
+
 def ingest_user(user_data: dict):
     """
     Ingest the generated user data into the API.
@@ -884,7 +971,6 @@ def ingest_user(user_data: dict):
         user_data (dict): The user data to ingest.
     """
     ingest_url = f"{API_BASE_URL}/api/ingest/user"
-    headers = {"Content-Type": "application/json"}
     response = requests.post(ingest_url, json=user_data, headers=API_HEADERS)
 
     if response.status_code == 201:
@@ -911,46 +997,39 @@ def cli(ctx, model):
     ctx.obj["models"] = MODELS
 
 
-@click.group()
-@click.option(
-    "--model",
-    multiple=True,
-    help="Model(s) to use for requests. Can be specified multiple times.",
-)
-@click.pass_context
-def cli(ctx, model):
-    global MODELS
-    MODELS = list(model) if model else [os.getenv("OPENAI_MODEL", "llama3")]
-    logger.info(f"Using model(s): {', '.join(MODELS)}")
-    ctx.ensure_object(dict)
-    ctx.obj["models"] = MODELS
-
 @cli.command()
 @click.option("--count", type=int, default=1, help="Number of subdeaddits to create")
-@click.option("--wait", type=int, default=0, help="Wait time in seconds between creations")
+@click.option(
+    "--wait", type=int, default=0, help="Wait time in seconds between creations"
+)
 @click.option("--model", help="Specific model to use for this command")
 @click.pass_context
 def subdeaddit(ctx, count, wait, model):
     """Create new subdeaddit(s)"""
     models = [model] if model else ctx.obj["models"]
     for i in range(count):
-        logger.info(f"Creating subdeaddit {i+1}/{count}")
+        logger.info(f"Creating subdeaddit {i + 1}/{count}")
         MODELS[:] = models  # Temporarily set the model for this creation
         create_subdeaddit()
         if i < count - 1 and wait > 0:
-            logger.info(f"Waiting for {wait} seconds before creating the next subdeaddit...")
+            logger.info(
+                f"Waiting for {wait} seconds before creating the next subdeaddit..."
+            )
             time.sleep(wait)
+
 
 @cli.command()
 @click.option("--count", type=int, default=1, help="Number of users to create")
-@click.option("--wait", type=int, default=0, help="Wait time in seconds between creations")
+@click.option(
+    "--wait", type=int, default=0, help="Wait time in seconds between creations"
+)
 @click.option("--model", help="Specific model to use for this command")
 @click.pass_context
 def user(ctx, count, wait, model):
     """Create new user(s)"""
     models = [model] if model else ctx.obj["models"]
     for i in range(count):
-        logger.info(f"Creating user {i+1}/{count}")
+        logger.info(f"Creating user {i + 1}/{count}")
         MODELS[:] = models  # Temporarily set the model for this creation
         generate_user()
         if i < count - 1 and wait > 0:
@@ -984,11 +1063,11 @@ def post(ctx, subdeaddit, replies, wait, count):
             return
 
     for i in range(count):
-        logger.info(f"Creating post {i+1}/{count}")
+        logger.info(f"Creating post {i + 1}/{count}")
         success = create_post_with_replies(subdeaddit, min_replies, max_replies, wait)
 
         if not success:
-            logger.error(f"Failed to create post {i+1}/{count}")
+            logger.error(f"Failed to create post {i + 1}/{count}")
             continue
 
         if i < count - 1 and wait > 0:
@@ -1017,6 +1096,7 @@ def comment(ctx, post, subdeaddit):
             logger.error(f"No posts found in subdeaddit '{subdeaddit}'")
     else:
         create_comment()
+
 
 @cli.command()
 @click.option(

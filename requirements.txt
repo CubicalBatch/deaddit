@@ -1,6 +1,7 @@
 flask
 requests
 flask-sqlalchemy
+flask-caching
 loguru
 
 ### Dev
