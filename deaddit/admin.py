@@ -5,7 +5,9 @@ Provides web-based UI for job management and content generation.
 
 from datetime import datetime, timedelta
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from functools import wraps
+
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 from loguru import logger
 from sqlalchemy import desc
 
@@ -26,8 +28,61 @@ from deaddit.models import (
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
+def admin_required(f):
+    """Decorator to check admin authentication when API_TOKEN is set."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Get API_TOKEN from environment
+        import os
+        api_token = os.environ.get("API_TOKEN")
+        
+        # If no API_TOKEN is set, allow access
+        if not api_token:
+            return f(*args, **kwargs)
+        
+        # Check if user is authenticated
+        if session.get("admin_authenticated") != True:
+            return redirect(url_for("admin.login"))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@admin_bp.route("/login", methods=["GET", "POST"])
+def login():
+    """Admin login page."""
+    import os
+    api_token = os.environ.get("API_TOKEN")
+    
+    # If no API_TOKEN is set, redirect to dashboard
+    if not api_token:
+        return redirect(url_for("admin.dashboard"))
+    
+    if request.method == "POST":
+        provided_token = request.form.get("api_token")
+        
+        if provided_token == api_token:
+            session["admin_authenticated"] = True
+            session.permanent = True
+            flash("Successfully authenticated!", "success")
+            return redirect(url_for("admin.dashboard"))
+        else:
+            flash("Invalid API token.", "error")
+    
+    return render_template("admin/login.html")
+
+
+@admin_bp.route("/logout")
+def logout():
+    """Admin logout."""
+    session.pop("admin_authenticated", None)
+    flash("You have been logged out.", "info")
+    return redirect(url_for("admin.login"))
+
+
 @admin_bp.route("/")
 @admin_bp.route("/dashboard")
+@admin_required
 def dashboard():
     """Admin dashboard with overview statistics."""
 
@@ -91,6 +146,7 @@ def dashboard():
 
 
 @admin_bp.route("/generate")
+@admin_required
 def generate():
     """Content generation management page."""
     templates = GenerationTemplate.query.all()
@@ -108,6 +164,7 @@ def generate():
 
 
 @admin_bp.route("/generate/subdeaddit", methods=["POST"])
+@admin_required
 def generate_subdeaddit():
     """Create a job to generate subdeaddits."""
 
@@ -132,6 +189,7 @@ def generate_subdeaddit():
 
 
 @admin_bp.route("/generate/user", methods=["POST"])
+@admin_required
 def generate_user():
     """Create a job to generate users."""
 
@@ -156,6 +214,7 @@ def generate_user():
 
 
 @admin_bp.route("/generate/post", methods=["POST"])
+@admin_required
 def generate_post():
     """Create a job to generate posts."""
 
@@ -184,6 +243,7 @@ def generate_post():
 
 
 @admin_bp.route("/generate/comment", methods=["POST"])
+@admin_required
 def generate_comment():
     """Create a job to generate comments."""
 
@@ -214,6 +274,7 @@ def generate_comment():
 
 
 @admin_bp.route("/jobs")
+@admin_required
 def jobs():
     """Job management page."""
 
@@ -254,6 +315,7 @@ def jobs():
 
 
 @admin_bp.route("/jobs/<int:job_id>")
+@admin_required
 def job_detail(job_id):
     """Job detail page."""
     job = Job.query.get_or_404(job_id)
@@ -284,6 +346,7 @@ def job_detail(job_id):
 
 
 @admin_bp.route("/jobs/<int:job_id>/cancel", methods=["POST"])
+@admin_required
 def cancel_job_route(job_id):
     """Cancel a job."""
     if cancel_job(job_id):
@@ -295,6 +358,7 @@ def cancel_job_route(job_id):
 
 
 @admin_bp.route("/jobs/<int:job_id>/retry", methods=["POST"])
+@admin_required
 def retry_job_route(job_id):
     """Retry a failed job."""
     original_job = Job.query.get_or_404(job_id)
@@ -316,6 +380,7 @@ def retry_job_route(job_id):
 
 
 @admin_bp.route("/api/jobs/<int:job_id>/status")
+@admin_required
 def job_status_api(job_id):
     """API endpoint to get job status (for real-time updates)."""
     status = get_job_status(job_id)
@@ -326,6 +391,7 @@ def job_status_api(job_id):
 
 
 @admin_bp.route("/api/jobs/stats")
+@admin_required
 def jobs_stats_api():
     """API endpoint to get job statistics."""
     try:
@@ -351,6 +417,7 @@ def jobs_stats_api():
 
 
 @admin_bp.route("/content")
+@admin_required
 def content():
     """Content management page."""
 
@@ -375,6 +442,7 @@ def content():
 
 
 @admin_bp.route("/analytics")
+@admin_required
 def analytics():
     """Analytics and insights page."""
 
@@ -419,6 +487,7 @@ def analytics():
 
 
 @admin_bp.route("/settings")
+@admin_required
 def settings():
     """Settings and configuration page."""
 
@@ -441,6 +510,7 @@ def settings():
 
 
 @admin_bp.route("/api/system-info")
+@admin_required
 def system_info_api():
     """API endpoint to get system information."""
     import sys
@@ -460,16 +530,32 @@ def system_info_api():
 
 
 @admin_bp.route("/api/save-config", methods=["POST"])
+@admin_required
 def save_config_api():
     """API endpoint to save configuration to database."""
     try:
         data = request.get_json()
 
         # Save configuration values to database
+        endpoint_url = None
         if data.get("openai_api_url"):
-            Config.set("OPENAI_API_URL", data["openai_api_url"].rstrip("/"))
+            endpoint_url = data["openai_api_url"].rstrip("/")
+            Config.set("OPENAI_API_URL", endpoint_url)
+
+        # Handle per-endpoint API key storage
         if data.get("openai_key"):
-            Config.set("OPENAI_KEY", data["openai_key"])
+            if endpoint_url:
+                Config.set_api_key_for_endpoint(endpoint_url, data["openai_key"])
+            else:
+                # If no endpoint URL, use current endpoint
+                current_endpoint = Config.get("OPENAI_API_URL")
+                if current_endpoint:
+                    Config.set_api_key_for_endpoint(
+                        current_endpoint, data["openai_key"]
+                    )
+                else:
+                    Config.set("OPENAI_KEY", data["openai_key"])
+
         if data.get("openai_model"):
             Config.set("OPENAI_MODEL", data["openai_model"])
         if data.get("api_base_url"):
@@ -478,12 +564,14 @@ def save_config_api():
             Config.set("MODELS", data["models"])
 
         # Return updated config
+        current_endpoint = Config.get("OPENAI_API_URL")
         config = {
-            "openai_api_url": Config.get("OPENAI_API_URL", "Not set"),
+            "openai_api_url": current_endpoint or "Not set",
             "openai_model": Config.get("OPENAI_MODEL", "Not set"),
             "api_base_url": Config.get("API_BASE_URL", "Not set"),
-            "openai_key_set": bool(Config.get("OPENAI_KEY"))
-            and Config.get("OPENAI_KEY") != "your_openrouter_api_key",
+            "openai_key_set": bool(Config.get_api_key_for_endpoint(current_endpoint))
+            and Config.get_api_key_for_endpoint(current_endpoint)
+            != "your_openrouter_api_key",
         }
 
         return jsonify(
@@ -501,6 +589,7 @@ def save_config_api():
 
 
 @admin_bp.route("/api/test-connection", methods=["POST"])
+@admin_required
 def test_connection_api():
     """API endpoint to test AI service connection with custom parameters."""
 
@@ -520,9 +609,9 @@ def test_connection_api():
                 }
             )
 
-        # If no API key provided or masked key, try to use saved environment variable
+        # If no API key provided or masked key, try to use saved key for this endpoint
         if not api_key or api_key == "••••••••••••••••":
-            api_key = Config.get("OPENAI_KEY")
+            api_key = Config.get_api_key_for_endpoint(api_url)
             if not api_key:
                 return jsonify(
                     {
@@ -582,6 +671,7 @@ def test_connection_api():
 
 
 @admin_bp.route("/api/load-models", methods=["POST"])
+@admin_required
 def load_models_api():
     """API endpoint to load available models from AI service."""
     import requests
@@ -594,9 +684,9 @@ def load_models_api():
         if not api_url:
             return jsonify({"success": False, "message": "API URL is required"})
 
-        # If no API key provided or masked key, try to use saved environment variable
+        # If no API key provided or masked key, try to use saved key for this endpoint
         if not api_key or api_key == "••••••••••••••••":
-            api_key = Config.get("OPENAI_KEY")
+            api_key = Config.get_api_key_for_endpoint(api_url)
             if not api_key:
                 return jsonify(
                     {
@@ -647,7 +737,36 @@ def load_models_api():
         return jsonify({"success": False, "message": f"Error loading models: {str(e)}"})
 
 
+@admin_bp.route("/api/get-endpoint-key", methods=["POST"])
+@admin_required
+def get_endpoint_key_api():
+    """API endpoint to get the API key for a specific endpoint."""
+    try:
+        data = request.get_json()
+        endpoint_url = data.get("endpoint_url")
+
+        if not endpoint_url:
+            return jsonify({"success": False, "message": "Endpoint URL is required"})
+
+        api_key = Config.get_api_key_for_endpoint(endpoint_url)
+
+        return jsonify(
+            {
+                "success": True,
+                "api_key": api_key,
+                "masked_key": "••••••••••••••••" if api_key else None,
+                "has_key": bool(api_key),
+            }
+        )
+
+    except Exception as e:
+        return jsonify(
+            {"success": False, "message": f"Error getting endpoint key: {str(e)}"}
+        )
+
+
 @admin_bp.route("/api/clear-jobs", methods=["POST"])
+@admin_required
 def clear_jobs_api():
     """API endpoint to clear all jobs history."""
     try:
@@ -676,6 +795,7 @@ def clear_jobs_api():
 
 
 @admin_bp.route("/api/load-default-data", methods=["POST"])
+@admin_required
 def load_default_data_api():
     """API endpoint to load default subdeaddits and users from JSON files."""
     import json
@@ -768,6 +888,7 @@ def load_default_data_api():
 
 
 @admin_bp.route("/api/hide-default-data", methods=["POST"])
+@admin_required
 def hide_default_data_api():
     """API endpoint to hide the default data section permanently."""
     try:

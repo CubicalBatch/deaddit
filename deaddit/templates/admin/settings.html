@@ -24,6 +24,15 @@
                                 <label for="openai_api_url" class="form-label">
                                     API Endpoint URL <span class="text-danger">*</span>
                                 </label>
+                                <div class="mb-2">
+                                    <select class="form-select" id="api_preset" onchange="setPresetUrl()">
+                                        <option value="">Select a preset...</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="groq">Groq</option>
+                                        <option value="openrouter">OpenRouter</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
                                 <input type="url" class="form-control" id="openai_api_url" name="openai_api_url" 
                                        value="{{ config.openai_api_url if config.openai_api_url != 'Not set' else '' }}" 
                                        placeholder="http://localhost:11434/v1" required>
@@ -349,6 +358,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up form submission
     document.getElementById('openai-config-form').addEventListener('submit', saveConfiguration);
+    
+    // Set preset selection based on current URL
+    setCurrentPreset();
+    
+    // Add event listener to URL input for manual changes
+    document.getElementById('openai_api_url').addEventListener('blur', function() {
+        const url = this.value.trim();
+        if (url) {
+            loadApiKeyForEndpoint(url);
+        }
+    });
 });
 
 function loadSystemInfo() {
@@ -404,6 +424,8 @@ function saveConfiguration(event) {
     event.preventDefault();
     
     const formData = new FormData(event.target);
+    const keyInput = document.getElementById('openai_key');
+    
     const data = {
         openai_api_url: formData.get('openai_api_url'),
         openai_key: formData.get('openai_key'),
@@ -411,9 +433,14 @@ function saveConfiguration(event) {
         api_base_url: formData.get('api_base_url')
     };
     
-    // Don't send masked password
+    // Handle masked key - use actual key if available
     if (data.openai_key === '••••••••••••••••') {
-        delete data.openai_key;
+        const actualKey = keyInput.getAttribute('data-actual-key');
+        if (actualKey) {
+            data.openai_key = actualKey;
+        } else {
+            delete data.openai_key;
+        }
     }
     
     const submitButton = event.target.querySelector('button[type="submit"]');
@@ -434,6 +461,13 @@ function saveConfiguration(event) {
         if (data.success) {
             showAlert('<i class="bi bi-check-circle"></i> Configuration saved successfully!', 'alert-success');
             updateConfigurationStatus(data.config);
+            
+            // Clear the actual key data attribute since we just saved
+            const keyInput = document.getElementById('openai_key');
+            keyInput.removeAttribute('data-actual-key');
+            if (keyInput.value && keyInput.value !== '••••••••••••••••') {
+                keyInput.value = '••••••••••••••••';
+            }
         } else {
             showAlert('<i class="bi bi-x-circle"></i> Failed to save configuration: ' + data.message, 'alert-danger');
         }
@@ -675,6 +709,73 @@ function showAlert(message, alertClass) {
             alert.close();
         }
     }, 5000);
+}
+
+function setPresetUrl() {
+    const preset = document.getElementById('api_preset').value;
+    const urlInput = document.getElementById('openai_api_url');
+    
+    const urls = {
+        'openai': 'https://api.openai.com/v1',
+        'groq': 'https://api.groq.com/openai/v1',
+        'openrouter': 'https://openrouter.ai/api/v1',
+        'custom': ''
+    };
+    
+    if (preset && urls[preset] !== undefined) {
+        urlInput.value = urls[preset];
+        if (preset === 'custom') {
+            urlInput.focus();
+        } else {
+            // Load the API key for this endpoint
+            loadApiKeyForEndpoint(urls[preset]);
+        }
+    }
+}
+
+function setCurrentPreset() {
+    const currentUrl = document.getElementById('openai_api_url').value;
+    const presetSelect = document.getElementById('api_preset');
+    
+    const presets = {
+        'https://api.openai.com/v1': 'openai',
+        'https://api.groq.com/openai/v1': 'groq',
+        'https://openrouter.ai/api/v1': 'openrouter'
+    };
+    
+    if (currentUrl && presets[currentUrl]) {
+        presetSelect.value = presets[currentUrl];
+    } else if (currentUrl) {
+        presetSelect.value = 'custom';
+    }
+}
+
+function loadApiKeyForEndpoint(endpointUrl) {
+    if (!endpointUrl) return;
+    
+    fetch('/admin/api/get-endpoint-key', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            endpoint_url: endpointUrl
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const keyInput = document.getElementById('openai_key');
+        if (data.success && data.has_key) {
+            keyInput.value = data.masked_key;
+            keyInput.setAttribute('data-actual-key', data.api_key);
+        } else {
+            keyInput.value = '';
+            keyInput.removeAttribute('data-actual-key');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading API key for endpoint:', error);
+    });
 }
 </script>
 {% endblock %}

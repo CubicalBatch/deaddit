@@ -72,6 +72,7 @@ def ingest():
         created_posts.append(post)
 
     # Validate and create comments
+    created_comments = []
     for comment_data in comments:
         user = comment_data.get("user")
         if not User.query.filter_by(username=user).first():
@@ -110,6 +111,8 @@ def ingest():
         )
         added.append(content)
         db.session.add(comment)
+        # Store comment object to get ID after commit
+        created_comments.append(comment)
 
     # Validate and create subdeaddits
     for subdeaddit_data in subdeaddits:
@@ -162,6 +165,13 @@ def ingest():
     if created_posts:
         response_data["posts"] = [
             {"id": post.id, "title": post.title} for post in created_posts
+        ]
+
+    # Add comment IDs to response if comments were created
+    if created_comments:
+        response_data["comments"] = [
+            {"id": comment.id, "content": comment.content[:50]}
+            for comment in created_comments
         ]
 
     return jsonify(response_data), 201

@@ -153,3 +153,82 @@ class Config:
         except Exception:
             # Database might not be ready yet
             return False
+
+    @classmethod
+    def get_api_key_for_endpoint(cls, endpoint_url: str) -> Optional[str]:
+        """Get API key for a specific endpoint URL."""
+        if not endpoint_url:
+            return cls.get("OPENAI_KEY")
+
+        # Create a key based on the endpoint
+        key = cls._endpoint_to_key(endpoint_url)
+
+        # Try to get endpoint-specific key first
+        endpoint_key = cls.get(f"API_KEY_{key}")
+        if endpoint_key:
+            return endpoint_key
+
+        # Fall back to default OPENAI_KEY
+        return cls.get("OPENAI_KEY")
+
+    @classmethod
+    def set_api_key_for_endpoint(cls, endpoint_url: str, api_key: str) -> None:
+        """Set API key for a specific endpoint URL."""
+        if not endpoint_url:
+            cls.set("OPENAI_KEY", api_key)
+            return
+
+        # Create a key based on the endpoint
+        key = cls._endpoint_to_key(endpoint_url)
+
+        # Set endpoint-specific key
+        cls.set(f"API_KEY_{key}", api_key)
+
+        # Also update the current default if this is the current endpoint
+        current_endpoint = cls.get("OPENAI_API_URL")
+        if current_endpoint == endpoint_url:
+            cls.set("OPENAI_KEY", api_key)
+
+    @classmethod
+    def _endpoint_to_key(cls, endpoint_url: str) -> str:
+        """Convert endpoint URL to a safe key name."""
+        import re
+
+        # Extract the domain from the URL
+        if "openai.com" in endpoint_url:
+            return "OPENAI"
+        elif "groq.com" in endpoint_url:
+            return "GROQ"
+        elif "openrouter.ai" in endpoint_url:
+            return "OPENROUTER"
+        else:
+            # For custom endpoints, create a safe key from the URL
+            safe_key = re.sub(
+                r"[^a-zA-Z0-9]",
+                "_",
+                endpoint_url.replace("https://", "").replace("http://", ""),
+            )
+            return safe_key.upper()[:50]  # Limit length
+
+    @classmethod
+    def get_all_endpoint_keys(cls) -> dict:
+        """Get all endpoint-specific API keys."""
+        endpoint_keys = {}
+
+        # Common endpoints
+        endpoints = {
+            "https://api.openai.com/v1": "OpenAI",
+            "https://api.groq.com/openai/v1": "Groq",
+            "https://openrouter.ai/api/v1": "OpenRouter",
+        }
+
+        for endpoint_url, name in endpoints.items():
+            key = cls.get_api_key_for_endpoint(endpoint_url)
+            if key:
+                endpoint_keys[endpoint_url] = {
+                    "name": name,
+                    "key": key,
+                    "masked": "••••••••••••••••" if key else None,
+                }
+
+        return endpoint_keys

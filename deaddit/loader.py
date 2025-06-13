@@ -163,6 +163,13 @@ def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict
     except (AttributeError, IndexError) as e:
         logger.error(f"Error accessing API response content: {str(e)}")
         return {}
+
+    # Remove <think> and </think> tags from AI responses (case-insensitive)
+    generated_text = re.sub(
+        r"<think>.*?</think>", "", generated_text, flags=re.DOTALL | re.IGNORECASE
+    )
+    generated_text = generated_text.strip()
+
     logger.info(f"Received text: {generated_text}")
 
     # Try to extract JSON from the text
