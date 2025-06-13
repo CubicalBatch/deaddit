@@ -1,0 +1,631 @@
+"""
+Admin interface for Deaddit content management.
+Provides web-based UI for job management and content generation.
+"""
+
+from datetime import datetime, timedelta
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from sqlalchemy import desc, func
+from loguru import logger
+
+from deaddit import db
+from deaddit.jobs import create_job, get_job_status, cancel_job, get_queue_stats
+from deaddit.models import (
+    Job,
+    JobType,
+    JobStatus,
+    GenerationTemplate,
+    Post,
+    Comment,
+    User,
+    Subdeaddit,
+)
+
+admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+
+@admin_bp.route("/")
+@admin_bp.route("/dashboard")
+def dashboard():
+    """Admin dashboard with overview statistics."""
+
+    # Get basic content statistics
+    stats = {
+        "total_posts": Post.query.count(),
+        "total_comments": Comment.query.count(),
+        "total_users": User.query.count(),
+        "total_subdeaddits": Subdeaddit.query.count(),
+    }
+
+    # Get recent activity (last 24 hours)
+    since_yesterday = datetime.utcnow() - timedelta(days=1)
+
+    # Count recent completed user creation jobs as proxy for new users
+    recent_user_jobs = Job.query.filter(
+        Job.created_at >= since_yesterday,
+        Job.type == JobType.CREATE_USER,
+        Job.status == JobStatus.COMPLETED,
+    ).count()
+
+    recent_stats = {
+        "posts_24h": Post.query.filter(Post.created_at >= since_yesterday).count(),
+        "comments_24h": Comment.query.filter(
+            Comment.created_at >= since_yesterday
+        ).count(),
+        "users_24h": recent_user_jobs,
+    }
+
+    # Get job statistics
+    job_stats = {
+        "total_jobs": Job.query.count(),
+        "pending_jobs": Job.query.filter_by(status=JobStatus.PENDING).count(),
+        "running_jobs": Job.query.filter_by(status=JobStatus.RUNNING).count(),
+        "completed_jobs": Job.query.filter_by(status=JobStatus.COMPLETED).count(),
+        "failed_jobs": Job.query.filter_by(status=JobStatus.FAILED).count(),
+    }
+
+    # Get recent jobs
+    recent_jobs = Job.query.order_by(desc(Job.created_at)).limit(10).all()
+
+    # Get queue statistics (handle Redis not available)
+    try:
+        queue_stats = get_queue_stats()
+    except Exception as e:
+        logger.warning(f"Could not get queue stats: {e}")
+        queue_stats = {
+            "high_priority": {"pending": 0, "failed": 0},
+            "normal": {"pending": 0, "failed": 0},
+            "low_priority": {"pending": 0, "failed": 0},
+        }
+
+    return render_template(
+        "admin/dashboard.html",
+        stats=stats,
+        recent_stats=recent_stats,
+        job_stats=job_stats,
+        recent_jobs=recent_jobs,
+        queue_stats=queue_stats,
+    )
+
+
+@admin_bp.route("/generate")
+def generate():
+    """Content generation management page."""
+    templates = GenerationTemplate.query.all()
+    subdeaddits = Subdeaddit.query.all()
+
+    return render_template(
+        "admin/generate.html", templates=templates, subdeaddits=subdeaddits
+    )
+
+
+@admin_bp.route("/generate/subdeaddit", methods=["POST"])
+def generate_subdeaddit():
+    """Create a job to generate subdeaddits."""
+
+    count = int(request.form.get("count", 1))
+    model = request.form.get("model")
+    wait = int(request.form.get("wait", 0))
+    priority = int(request.form.get("priority", 5))
+
+    parameters = {"count": count, "wait": wait}
+    if model:
+        parameters["model"] = model
+
+    job = create_job(
+        job_type=JobType.CREATE_SUBDEADDIT,
+        parameters=parameters,
+        priority=priority,
+        total_items=count,
+    )
+
+    flash(f"Subdeaddit generation job created (ID: {job.id})", "success")
+    return redirect(url_for("admin.jobs"))
+
+
+@admin_bp.route("/generate/user", methods=["POST"])
+def generate_user():
+    """Create a job to generate users."""
+
+    count = int(request.form.get("count", 1))
+    model = request.form.get("model")
+    wait = int(request.form.get("wait", 0))
+    priority = int(request.form.get("priority", 5))
+
+    parameters = {"count": count, "wait": wait}
+    if model:
+        parameters["model"] = model
+
+    job = create_job(
+        job_type=JobType.CREATE_USER,
+        parameters=parameters,
+        priority=priority,
+        total_items=count,
+    )
+
+    flash(f"User generation job created (ID: {job.id})", "success")
+    return redirect(url_for("admin.jobs"))
+
+
+@admin_bp.route("/generate/post", methods=["POST"])
+def generate_post():
+    """Create a job to generate posts."""
+
+    count = int(request.form.get("count", 1))
+    subdeaddit = request.form.get("subdeaddit")
+    replies = request.form.get("replies", "5-10")
+    model = request.form.get("model")
+    wait = int(request.form.get("wait", 0))
+    priority = int(request.form.get("priority", 5))
+
+    parameters = {"count": count, "wait": wait, "replies": replies}
+    if subdeaddit:
+        parameters["subdeaddit"] = subdeaddit
+    if model:
+        parameters["model"] = model
+
+    job = create_job(
+        job_type=JobType.CREATE_POST,
+        parameters=parameters,
+        priority=priority,
+        total_items=count,
+    )
+
+    flash(f"Post generation job created (ID: {job.id})", "success")
+    return redirect(url_for("admin.jobs"))
+
+
+@admin_bp.route("/generate/comment", methods=["POST"])
+def generate_comment():
+    """Create a job to generate comments."""
+
+    post_id = request.form.get("post_id")
+    subdeaddit = request.form.get("subdeaddit")
+    model = request.form.get("model")
+    priority = int(request.form.get("priority", 5))
+
+    parameters = {}
+    if post_id:
+        parameters["post_id"] = int(post_id)
+    if subdeaddit:
+        parameters["subdeaddit"] = subdeaddit
+    if model:
+        parameters["model"] = model
+
+    job = create_job(
+        job_type=JobType.CREATE_COMMENT,
+        parameters=parameters,
+        priority=priority,
+        total_items=1,
+    )
+
+    flash(f"Comment generation job created (ID: {job.id})", "success")
+    return redirect(url_for("admin.jobs"))
+
+
+@admin_bp.route("/jobs")
+def jobs():
+    """Job management page."""
+
+    # Get filter parameters
+    status_filter = request.args.get("status")
+    type_filter = request.args.get("type")
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 20))
+
+    # Build query
+    query = Job.query
+
+    if status_filter:
+        query = query.filter(Job.status == JobStatus(status_filter))
+
+    if type_filter:
+        query = query.filter(Job.type == JobType(type_filter))
+
+    # Order by creation date (newest first)
+    query = query.order_by(desc(Job.created_at))
+
+    # Paginate
+    jobs_pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    # Get available filter options
+    job_types = [jt.value for jt in JobType]
+    job_statuses = [js.value for js in JobStatus]
+
+    return render_template(
+        "admin/jobs.html",
+        jobs=jobs_pagination.items,
+        pagination=jobs_pagination,
+        job_types=job_types,
+        job_statuses=job_statuses,
+        current_status=status_filter,
+        current_type=type_filter,
+    )
+
+
+@admin_bp.route("/jobs/<int:job_id>")
+def job_detail(job_id):
+    """Job detail page."""
+    job = Job.query.get_or_404(job_id)
+    
+    # Find related jobs (same type, created around the same time)
+    time_window = timedelta(hours=24)
+    related_jobs = Job.query.filter(
+        Job.id != job.id,
+        Job.type == job.type,
+        Job.created_at >= job.created_at - time_window,
+        Job.created_at <= job.created_at + time_window
+    ).order_by(desc(Job.created_at)).limit(10).all()
+    
+    return render_template("admin/job_detail.html", job=job, related_jobs=related_jobs, 
+                         User=User, Post=Post, Comment=Comment, Subdeaddit=Subdeaddit)
+
+
+@admin_bp.route("/jobs/<int:job_id>/cancel", methods=["POST"])
+def cancel_job_route(job_id):
+    """Cancel a job."""
+    if cancel_job(job_id):
+        flash(f"Job {job_id} cancelled successfully", "success")
+    else:
+        flash(f"Could not cancel job {job_id}", "error")
+
+    return redirect(url_for("admin.job_detail", job_id=job_id))
+
+
+@admin_bp.route("/api/jobs/<int:job_id>/status")
+def job_status_api(job_id):
+    """API endpoint to get job status (for real-time updates)."""
+    status = get_job_status(job_id)
+    if status:
+        return jsonify(status)
+    else:
+        return jsonify({"error": "Job not found"}), 404
+
+
+@admin_bp.route("/api/jobs/stats")
+def jobs_stats_api():
+    """API endpoint to get job statistics."""
+    try:
+        stats = get_queue_stats()
+    except Exception as e:
+        logger.warning(f"Could not get queue stats: {e}")
+        stats = {
+            "scheduler_running": False,
+            "total_jobs": 0,
+            "pending_jobs": 0,
+            "running_jobs": 0
+        }
+
+    # Add database job counts
+    stats["database"] = {
+        "pending": Job.query.filter_by(status=JobStatus.PENDING).count(),
+        "running": Job.query.filter_by(status=JobStatus.RUNNING).count(),
+        "completed": Job.query.filter_by(status=JobStatus.COMPLETED).count(),
+        "failed": Job.query.filter_by(status=JobStatus.FAILED).count(),
+    }
+
+    return jsonify(stats)
+
+
+@admin_bp.route("/content")
+def content():
+    """Content management page."""
+
+    # Get content statistics
+    content_stats = {
+        "posts": Post.query.count(),
+        "comments": Comment.query.count(),
+        "users": User.query.count(),
+        "subdeaddits": Subdeaddit.query.count(),
+    }
+
+    # Get recent content
+    recent_posts = Post.query.order_by(desc(Post.created_at)).limit(10).all()
+    recent_comments = Comment.query.order_by(desc(Comment.created_at)).limit(10).all()
+
+    return render_template(
+        "admin/content.html",
+        content_stats=content_stats,
+        recent_posts=recent_posts,
+        recent_comments=recent_comments,
+    )
+
+
+@admin_bp.route("/analytics")
+def analytics():
+    """Analytics and insights page."""
+
+    # Get generation metrics over time
+    # This is a placeholder - in a real implementation, you'd want more sophisticated analytics
+
+    # Model usage statistics
+    model_stats = {}
+    for model in db.session.query(Post.model).distinct():
+        if model[0]:
+            count = Post.query.filter_by(model=model[0]).count()
+            model_stats[model[0]] = count
+
+    # Daily generation counts (last 30 days)
+    daily_stats = []
+    for i in range(30):
+        date = datetime.utcnow() - timedelta(days=i)
+        date_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        date_end = date_start + timedelta(days=1)
+
+        posts_count = Post.query.filter(
+            Post.created_at >= date_start, Post.created_at < date_end
+        ).count()
+
+        comments_count = Comment.query.filter(
+            Comment.created_at >= date_start, Comment.created_at < date_end
+        ).count()
+
+        daily_stats.append(
+            {
+                "date": date_start.strftime("%Y-%m-%d"),
+                "posts": posts_count,
+                "comments": comments_count,
+            }
+        )
+
+    daily_stats.reverse()  # Show oldest to newest
+
+    return render_template(
+        "admin/analytics.html", model_stats=model_stats, daily_stats=daily_stats
+    )
+
+
+@admin_bp.route("/settings")
+def settings():
+    """Settings and configuration page."""
+
+    # Get current configuration
+    import os
+
+    config = {
+        "openai_api_url": os.getenv("OPENAI_API_URL", "Not set"),
+        "openai_model": os.getenv("OPENAI_MODEL", "Not set"),
+        "api_base_url": os.getenv("API_BASE_URL", "Not set"),
+        "api_token_set": bool(os.getenv("API_TOKEN")),
+        "openai_key_set": bool(os.getenv("OPENAI_KEY")),
+    }
+
+    return render_template("admin/settings.html", config=config)
+
+
+@admin_bp.route("/api/system-info")
+def system_info_api():
+    """API endpoint to get system information."""
+    import sys
+    import flask
+    import sqlalchemy
+    import apscheduler
+    
+    return jsonify({
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "flask_version": flask.__version__,
+        "sqlalchemy_version": sqlalchemy.__version__,
+        "apscheduler_version": apscheduler.__version__,
+    })
+
+
+@admin_bp.route("/api/save-config", methods=["POST"])
+def save_config_api():
+    """API endpoint to save configuration to .env file."""
+    import os
+    from pathlib import Path
+    
+    try:
+        data = request.get_json()
+        
+        # Path to .env file
+        env_file = Path(".env")
+        
+        # Read current .env file or create if it doesn't exist
+        env_vars = {}
+        if env_file.exists():
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        env_vars[key] = value
+        
+        # Update with new values
+        if data.get('openai_api_url'):
+            env_vars['OPENAI_API_URL'] = data['openai_api_url']
+        if data.get('openai_key'):
+            env_vars['OPENAI_KEY'] = data['openai_key']
+        if data.get('openai_model'):
+            env_vars['OPENAI_MODEL'] = data['openai_model']
+        if data.get('api_base_url'):
+            env_vars['API_BASE_URL'] = data['api_base_url']
+        
+        # Write back to .env file
+        with open(env_file, 'w') as f:
+            for key, value in env_vars.items():
+                f.write(f"{key}={value}\n")
+        
+        # Update environment variables for current session
+        for key, value in env_vars.items():
+            os.environ[key] = value
+        
+        # Return updated config
+        config = {
+            "openai_api_url": env_vars.get("OPENAI_API_URL", "Not set"),
+            "openai_model": env_vars.get("OPENAI_MODEL", "Not set"),
+            "api_base_url": env_vars.get("API_BASE_URL", "Not set"),
+            "openai_key_set": bool(env_vars.get("OPENAI_KEY")),
+        }
+        
+        return jsonify({
+            "success": True,
+            "message": "Configuration saved successfully",
+            "config": config
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Failed to save configuration: {str(e)}"
+        })
+
+
+@admin_bp.route("/api/test-connection", methods=["POST"])
+def test_connection_api():
+    """API endpoint to test AI service connection with custom parameters."""
+    import requests
+    import os
+    
+    try:
+        data = request.get_json()
+        api_url = data.get('api_url')
+        api_key = data.get('api_key')
+        
+        if not api_url:
+            return jsonify({
+                "success": False,
+                "message": "API URL is required",
+                "status_code": None
+            })
+        
+        # If no API key provided or masked key, try to use saved environment variable
+        if not api_key or api_key == '••••••••••••••••':
+            api_key = os.getenv('OPENAI_KEY')
+            if not api_key:
+                return jsonify({
+                    "success": False,
+                    "message": "API key is required. Please enter a key or save one in settings first.",
+                    "status_code": None
+                })
+        
+        # Test connection to AI service
+        headers = {"Authorization": f"Bearer {api_key}"}
+        response = requests.get(f"{api_url.rstrip('/')}/models", headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            return jsonify({
+                "success": True,
+                "message": "Connection successful! AI service is reachable.",
+                "status_code": response.status_code
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": f"AI service returned an error response",
+                "status_code": response.status_code
+            })
+    
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            "success": False,
+            "message": "Cannot connect to AI service. Check API URL.",
+            "status_code": None
+        })
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "success": False,
+            "message": "Connection timeout. AI service may be slow or unreachable.",
+            "status_code": None
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Connection test failed: {str(e)}",
+            "status_code": None
+        })
+
+
+@admin_bp.route("/api/load-models", methods=["POST"])
+def load_models_api():
+    """API endpoint to load available models from AI service."""
+    import requests
+    import os
+    
+    try:
+        data = request.get_json()
+        api_url = data.get('api_url')
+        api_key = data.get('api_key')
+        
+        if not api_url:
+            return jsonify({
+                "success": False,
+                "message": "API URL is required"
+            })
+        
+        # If no API key provided or masked key, try to use saved environment variable
+        if not api_key or api_key == '••••••••••••••••':
+            api_key = os.getenv('OPENAI_KEY')
+            if not api_key:
+                return jsonify({
+                    "success": False,
+                    "message": "API key is required. Please enter a key or save one in settings first."
+                })
+        
+        # Get models from AI service
+        headers = {"Authorization": f"Bearer {api_key}"}
+        response = requests.get(f"{api_url.rstrip('/')}/models", headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            models_data = response.json()
+            
+            # Extract model names from response
+            models = []
+            if 'data' in models_data:
+                models = [model.get('id', 'Unknown') for model in models_data['data']]
+            elif 'models' in models_data:
+                models = [model.get('id', model.get('name', 'Unknown')) for model in models_data['models']]
+            
+            return jsonify({
+                "success": True,
+                "models": models,
+                "message": f"Found {len(models)} models"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": f"Failed to load models: HTTP {response.status_code}"
+            })
+    
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            "success": False,
+            "message": "Cannot connect to AI service"
+        })
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "success": False,
+            "message": "Connection timeout"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error loading models: {str(e)}"
+        })
+
+
+@admin_bp.route("/api/clear-jobs", methods=["POST"])
+def clear_jobs_api():
+    """API endpoint to clear all jobs history."""
+    try:
+        # Get count of jobs before deletion for reporting
+        job_count = Job.query.count()
+        
+        # Delete all jobs
+        db.session.query(Job).delete()
+        db.session.commit()
+        
+        logger.info(f"Cleared {job_count} jobs from history")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully cleared {job_count} jobs from history"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to clear jobs history: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"Failed to clear jobs history: {str(e)}"
+        })
