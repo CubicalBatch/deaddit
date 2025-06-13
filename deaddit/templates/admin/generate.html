@@ -7,6 +7,44 @@
     <h1 class="h2">Generate Content</h1>
 </div>
 
+<!-- Load Default Data Section -->
+{% if not default_data_loaded %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-download"></i> Load Default Data
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">
+                    <strong>Quick Start:</strong> Load pre-configured subdeaddits and users to get your Deaddit instance up and running quickly.
+                    This will add <strong>27 subdeaddits</strong> and <strong>50 users</strong> from the default data files.
+                </p>
+                <div class="mb-3">
+                    <strong>Included subdeaddits:</strong>
+                    <small class="text-muted d-block">
+                        AskDeaddit, NoSleep, LifeProTips, TalesFromRetail, localllama, personalfinance, tifu, nostalgia, 
+                        ChangeMyView, AmItheAsshole, philosophy, offmychest, AskWomen, AskMen, CasualConversation, 
+                        confession, UnresolvedMysteries, Showerthoughts, pettyrevenge, relationships, science, space, 
+                        books, suggestmeabook, history, psychology, gaming, BetweenRobots
+                    </small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-primary" onclick="loadDefaultData()">
+                        <i class="bi bi-download"></i> Load Default Subdeaddits & Users
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="hideDefaultData()">
+                        <i class="bi bi-eye-slash"></i> Hide and don't show again
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row">
     <!-- Subdeaddit Generation -->
     <div class="col-md-6 mb-4">
@@ -171,6 +209,12 @@
             <div class="card-body">
                 <form action="{{ url_for('admin.generate_comment') }}" method="post">
                     <div class="mb-3">
+                        <label for="comment-count" class="form-label">Count</label>
+                        <input type="number" class="form-control" id="comment-count" name="count" value="1" min="1" max="50">
+                        <div class="form-text">Number of comments to generate (1-50)</div>
+                    </div>
+                    
+                    <div class="mb-3">
                         <label for="comment-post-id" class="form-label">Post ID (Optional)</label>
                         <input type="number" class="form-control" id="comment-post-id" name="post_id" placeholder="e.g., 123">
                         <div class="form-text">Specific post to comment on, or leave blank for random</div>
@@ -191,6 +235,12 @@
                         <label for="comment-model" class="form-label">AI Model (Optional)</label>
                         <input type="text" class="form-control" id="comment-model" name="model" placeholder="e.g., gpt-4, llama3">
                         <div class="form-text">Leave empty to use default model</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="comment-wait" class="form-label">Wait Time (seconds)</label>
+                        <input type="number" class="form-control" id="comment-wait" name="wait" value="0" min="0" max="60">
+                        <div class="form-text">Delay between generations to respect API limits</div>
                     </div>
                     
                     <div class="mb-3">
@@ -262,4 +312,110 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadDefaultData() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    // Show loading state
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+    button.disabled = true;
+    
+    fetch('/admin/api/load-default-data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(`<i class="bi bi-check-circle"></i> ${data.message}`, 'alert-success');
+            
+            // Hide the load default data section since it's now loaded
+            const defaultDataSection = button.closest('.row');
+            if (defaultDataSection) {
+                defaultDataSection.style.display = 'none';
+            }
+            
+            // Reload the page after a short delay to refresh subdeaddit dropdowns
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showAlert(`<i class="bi bi-x-circle"></i> Failed to load default data: ${data.message}`, 'alert-danger');
+        }
+    })
+    .catch(error => {
+        showAlert(`<i class="bi bi-x-circle"></i> Error loading default data: ${error.message}`, 'alert-danger');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+function hideDefaultData() {
+    if (confirm('Are you sure you want to hide this section? This will permanently hide the default data loading option.')) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        // Show loading state
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Hiding...';
+        button.disabled = true;
+        
+        fetch('/admin/api/hide-default-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(`<i class="bi bi-check-circle"></i> ${data.message}`, 'alert-success');
+                
+                // Hide the default data section
+                const defaultDataSection = button.closest('.row');
+                if (defaultDataSection) {
+                    defaultDataSection.style.display = 'none';
+                }
+            } else {
+                showAlert(`<i class="bi bi-x-circle"></i> Failed to hide section: ${data.message}`, 'alert-danger');
+            }
+        })
+        .catch(error => {
+            showAlert(`<i class="bi bi-x-circle"></i> Error hiding section: ${error.message}`, 'alert-danger');
+        })
+        .finally(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
+}
+
+function showAlert(message, alertClass) {
+    const alertContainer = document.createElement('div');
+    alertContainer.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    alertContainer.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    
+    alertContainer.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertContainer);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertContainer.parentNode) {
+            const alert = new bootstrap.Alert(alertContainer);
+            alert.close();
+        }
+    }, 5000);
+}
+</script>
 {% endblock %}

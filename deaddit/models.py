@@ -155,3 +155,43 @@ class GenerationTemplate(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class Setting(db.Model):
+    key = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.Text)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    @staticmethod
+    def get_value(key, default=None):
+        """Get a setting value by key, returning default if not found."""
+        setting = Setting.query.get(key)
+        return setting.value if setting else default
+
+    @staticmethod
+    def set_value(key, value, description=None):
+        """Set a setting value, creating or updating as needed."""
+        setting = Setting.query.get(key)
+        if setting:
+            setting.value = value
+            if description:
+                setting.description = description
+            setting.updated_at = datetime.utcnow()
+        else:
+            setting = Setting(key=key, value=value, description=description)
+            db.session.add(setting)
+        db.session.commit()
+        return setting
+
+    def to_dict(self):
+        return {
+            "key": self.key,
+            "value": self.value,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

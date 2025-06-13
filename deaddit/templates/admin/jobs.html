@@ -169,6 +169,15 @@
                                         <i class="bi bi-x-circle"></i>
                                     </button>
                                 </form>
+                                {% elif job.status.value in ['failed', 'cancelled'] %}
+                                <form method="post" action="{{ url_for('admin.retry_job_route', job_id=job.id) }}" 
+                                      style="display: inline;">
+                                    <button type="submit" class="btn btn-outline-warning" 
+                                            title="Retry Job" 
+                                            onclick="return confirm('Are you sure you want to retry this job? This will create a new job with the same parameters.')">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </form>
                                 {% endif %}
                             </div>
                         </td>
