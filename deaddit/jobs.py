@@ -573,14 +573,12 @@ def _send_openai_request(system_prompt: str, prompt: str, model: str = None) -> 
     OPENAI_API_URL = Config.get("OPENAI_API_URL", "http://localhost/v1")
     OPENAI_KEY = Config.get("OPENAI_KEY", "your_openrouter_api_key")
 
-    # Use provided model or select one
+    # Use provided model or default model
     if model:
         selected_model = model
     else:
-        # Get available models from config or use default
-        models = Config.get("MODELS", "").split(",") if Config.get("MODELS") else [Config.get("OPENAI_MODEL", "llama3")]
-        models = [m.strip() for m in models if m.strip()]
-        selected_model = random.choice(models) if models else "llama3"
+        # Use the default model instead of randomly selecting
+        selected_model = Config.get("OPENAI_MODEL", "llama3")
 
     temperature = round(random.uniform(0.9, 1), 2)
     logger.info(f"Sending request to {OPENAI_API_URL} using model {selected_model}, temperature {temperature}")
@@ -952,18 +950,18 @@ def _queue_comment_jobs_for_post(post_result: Dict[str, Any], replies: str, mode
         num_comments = random.randint(min_replies, max_replies)
 
         # Extract post ID from the API response
-        # The API response should contain the created post ID
+        # The API response should contain the created post ID in posts array
         post_id = None
         if 'posts' in post_result and post_result['posts']:
-            # If posts is a list of objects with id
+            # Posts is a list of objects with id and title
             first_post = post_result['posts'][0]
-            if isinstance(first_post, dict):
-                post_id = first_post.get('id')
+            if isinstance(first_post, dict) and 'id' in first_post:
+                post_id = first_post['id']
+                logger.debug(f"Extracted post ID {post_id} from API response")
             else:
-                # If posts is a list of IDs
-                post_id = first_post
-        elif 'id' in post_result:
-            post_id = post_result['id']
+                logger.warning(f"Post object missing ID field: {first_post}")
+        else:
+            logger.warning(f"No posts array in API response: {post_result}")
 
         if not post_id:
             logger.warning(f"Could not extract post ID from result: {post_result}")
