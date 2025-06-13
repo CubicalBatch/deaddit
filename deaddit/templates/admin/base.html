@@ -121,10 +121,17 @@
         </a>
         <ul class="navbar-nav px-3">
             <li class="nav-item text-nowrap">
-                <a class="nav-link" href="{{ url_for('index') }}">
+                <a class="nav-link" href="{{ url_for('main.index') }}">
                     <i class="bi bi-house-door"></i> Back to Site
                 </a>
             </li>
+            {% if session.admin_authenticated %}
+            <li class="nav-item text-nowrap">
+                <a class="nav-link" href="{{ url_for('admin.logout') }}">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </li>
+            {% endif %}
         </ul>
     </nav>
 

@@ -43,6 +43,8 @@ with app.app_context():
     db.create_all()
     # Set SECRET_KEY from config system
     app.config["SECRET_KEY"] = Config.get("SECRET_KEY")
+    # Configure session settings for admin authentication
+    app.config["PERMANENT_SESSION_LIFETIME"] = 24 * 60 * 60  # 24 hours
     # Initialize default settings if database is empty
     Config.initialize_defaults()
 

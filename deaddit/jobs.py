@@ -684,6 +684,12 @@ def _parse_json_response(response: str, content_type: str) -> dict[str, Any]:
     # Clean up the response
     response = response.strip()
 
+    # Remove <think> and </think> tags from AI responses (case-insensitive)
+    response = re.sub(
+        r"<think>.*?</think>", "", response, flags=re.DOTALL | re.IGNORECASE
+    )
+    response = response.strip()
+
     # Try to extract JSON from markdown code blocks first
     json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
     if json_match:
@@ -856,15 +862,14 @@ The post should:
 
 Generate realistic upvote count (typically 5-150 for most posts, rarely higher).
 
+IMPORTANT: Do NOT include user, subdeaddit, or post_type fields in your response - these will be set automatically.
+
 Provide your response as JSON:
 ```json
 {{
     "title": "Your post title",
     "content": "Your post content...",
-    "upvote_count": 42,
-    "user": "{author.username}",
-    "subdeaddit": "{subdeaddit.name}",
-    "post_type": "{selected_post_type}"
+    "upvote_count": 42
 }}
 ```
 
@@ -874,22 +879,32 @@ Create the post now."""
     api_response, used_model = _send_openai_request(system_prompt, prompt, model)
     post_data = _parse_json_response(api_response, "post")
 
-    if post_data:
-        # Ensure required fields are set correctly
-        post_data["user"] = author.username
-        post_data["subdeaddit"] = subdeaddit.name
-        post_data["post_type"] = selected_post_type
-        post_data["model"] = used_model
+    # Ensure we have a valid dictionary and required fields are always set correctly
+    if not post_data:
+        post_data = {}
 
-        # Store API request/response for debugging
-        post_data["_api_request"] = {
-            "system_prompt": system_prompt,
-            "prompt": prompt,
-            "model": used_model,
-        }
-        post_data["_api_response"] = api_response
+    # Force set required fields to prevent AI from overriding with null/None
+    post_data["user"] = author.username
+    post_data["subdeaddit"] = subdeaddit.name
+    post_data["post_type"] = selected_post_type
+    post_data["model"] = used_model
 
-    return post_data or {}
+    # Store API request/response for debugging
+    post_data["_api_request"] = {
+        "system_prompt": system_prompt,
+        "prompt": prompt,
+        "model": used_model,
+    }
+    post_data["_api_response"] = api_response
+
+    # Validate that user is not None/null before returning
+    if not post_data.get("user"):
+        logger.error(
+            f"User field is None/empty after assignment. Author: {author.username}, Post data: {post_data}"
+        )
+        post_data["user"] = author.username  # Force set again
+
+    return post_data
 
 
 def _generate_comment_data(
@@ -983,7 +998,11 @@ Write your comment now."""
 
 
 def _queue_comment_jobs_for_post(
-    post_result: dict[str, Any], replies: str, model: str = None, priority: int = 5
+    post_result: dict[str, Any],
+    replies: str,
+    model: str = None,
+    priority: int = 5,
+    wait: int = 0,
 ):
     """Queue comment generation jobs for a newly created post."""
     import random
@@ -1022,7 +1041,12 @@ def _queue_comment_jobs_for_post(
         if num_comments > 0:
             comment_job = create_job(
                 job_type=JobType.CREATE_COMMENT,
-                parameters={"count": num_comments, "post_id": post_id, "model": model},
+                parameters={
+                    "count": num_comments,
+                    "post_id": post_id,
+                    "model": model,
+                    "wait": wait,
+                },
                 priority=priority,
                 total_items=num_comments,
             )
@@ -1090,14 +1114,22 @@ def _execute_create_post(job: Job) -> dict[str, Any]:
 
                 if response.status_code in [200, 201]:
                     result = response.json()
-                    post_title = clean_post_data.get("title", "unknown")
-                    results.append(post_title)
-                    logger.info(f"Created post: {post_title}")
+                    # Extract post ID from API response
+                    if "posts" in result and result["posts"]:
+                        post_id = result["posts"][0]["id"]
+                        results.append(post_id)
+                        post_title = clean_post_data.get("title", "unknown")
+                        logger.info(f"Created post {post_id}: {post_title}")
+                    else:
+                        # Fallback - store title if no ID available
+                        post_title = clean_post_data.get("title", "unknown")
+                        results.append(post_title)
+                        logger.info(f"Created post: {post_title}")
 
                     # Queue comment generation jobs if replies are specified
                     if replies and replies.strip():
                         _queue_comment_jobs_for_post(
-                            result, replies, model, job.priority
+                            result, replies, model, job.priority, wait
                         )
 
                     success = True
@@ -1199,12 +1231,26 @@ def _execute_create_comment(job: Job) -> dict[str, Any]:
                 )
 
                 if response.status_code in [200, 201]:
-                    response.json()
-                    comment_content = clean_comment_data.get("content", "unknown")[:50]
-                    results.append(comment_content)
-                    logger.info(
-                        f"Created comment for post {post_id}: {comment_content}"
-                    )
+                    result = response.json()
+                    # Extract comment ID from API response
+                    if "comments" in result and result["comments"]:
+                        comment_id = result["comments"][0]["id"]
+                        results.append(comment_id)
+                        comment_content = clean_comment_data.get("content", "unknown")[
+                            :50
+                        ]
+                        logger.info(
+                            f"Created comment {comment_id} for post {post_id}: {comment_content}"
+                        )
+                    else:
+                        # Fallback - store content snippet if no ID available
+                        comment_content = clean_comment_data.get("content", "unknown")[
+                            :50
+                        ]
+                        results.append(comment_content)
+                        logger.info(
+                            f"Created comment for post {post_id}: {comment_content}"
+                        )
                     success = True
                 else:
                     error_msg = f"Failed to ingest comment (HTTP {response.status_code}): {response.text}"

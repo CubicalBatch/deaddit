@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Admin Login - Deaddit{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Admin Authentication Required</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        This Deaddit instance has admin protection enabled. Please enter the API token to access the admin interface.
+                    </p>
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="api_token" class="form-label">API Token</label>
+                            <input type="password" class="form-control" id="api_token" name="api_token" required 
+                                   placeholder="Enter your API token">
+                            <div class="form-text">
+                                This is the API_TOKEN environment variable value.
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login to Admin
+                        </button>
+                    </form>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Main Site
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
