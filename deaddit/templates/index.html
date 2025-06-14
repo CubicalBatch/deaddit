@@ -25,10 +25,6 @@
                 <i class="bi bi-chat-left-text"></i>
                 {{ comment_counts[post.id] }} comments
             </a>
-            <a href="{{ url_for('post', post_id=post.id, subdeaddit_name=post.subdeaddit.name, models=request.args.getlist('models')) }}">
-                <i class="bi bi-arrow-up-right-square"></i>
-                Read more
-            </a>
         </div>
     </div>
 </article>

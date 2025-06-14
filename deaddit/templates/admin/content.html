@@ -1,0 +1,424 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Content Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1>Content Management</h1>
+            
+            <!-- Content Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Users</h5>
+                            <h3 class="text-primary">{{ content_stats.users }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Subdeaddits</h5>
+                            <h3 class="text-success">{{ content_stats.subdeaddits }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Posts</h5>
+                            <h3 class="text-info">{{ content_stats.posts }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Comments</h5>
+                            <h3 class="text-warning">{{ content_stats.comments }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Management Tabs -->
+            <ul class="nav nav-tabs" id="contentTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
+                        Users
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="subdeaddits-tab" data-bs-toggle="tab" data-bs-target="#subdeaddits" type="button" role="tab">
+                        Subdeaddits
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="posts-tab" data-bs-toggle="tab" data-bs-target="#posts" type="button" role="tab">
+                        Posts
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments" type="button" role="tab">
+                        Comments
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content mt-3" id="contentTabsContent">
+                <!-- Users Tab -->
+                <div class="tab-pane fade show active" id="users" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Users Management</h5>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control" id="usersSearch" placeholder="Search users..." style="width: 200px;">
+                                <button class="btn btn-danger" id="deleteSelectedUsers">Delete Selected</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="usersTable">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="selectAllUsers"></th>
+                                            <th>Username</th>
+                                            <th>Age</th>
+                                            <th>Gender</th>
+                                            <th>Occupation</th>
+                                            <th>Posts</th>
+                                            <th>Comments</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data loaded via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <nav>
+                                <ul class="pagination" id="usersPagination"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subdeaddits Tab -->
+                <div class="tab-pane fade" id="subdeaddits" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Subdeaddits Management</h5>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control" id="subdeadditsSearch" placeholder="Search subdeaddits..." style="width: 200px;">
+                                <button class="btn btn-danger" id="deleteSelectedSubdeaddits">Delete Selected</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="subdeadditsTable">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="selectAllSubdeaddits"></th>
+                                            <th>Name</th>
+                                            <th>Description</th>
+                                            <th>Posts</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data loaded via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <nav>
+                                <ul class="pagination" id="subdeadditsPagination"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Posts Tab -->
+                <div class="tab-pane fade" id="posts" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Posts Management</h5>
+                            <div class="d-flex gap-2">
+                                <select class="form-select" id="postsSubdeadditFilter" style="width: 150px;">
+                                    <option value="">All Subdeaddits</option>
+                                </select>
+                                <input type="text" class="form-control" id="postsSearch" placeholder="Search posts..." style="width: 200px;">
+                                <button class="btn btn-danger" id="deleteSelectedPosts">Delete Selected</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="postsTable">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="selectAllPosts"></th>
+                                            <th>Title</th>
+                                            <th>Author</th>
+                                            <th>Subdeaddit</th>
+                                            <th>Upvotes</th>
+                                            <th>Comments</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data loaded via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <nav>
+                                <ul class="pagination" id="postsPagination"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comments Tab -->
+                <div class="tab-pane fade" id="comments" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Comments Management</h5>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control" id="commentsSearch" placeholder="Search comments..." style="width: 200px;">
+                                <button class="btn btn-danger" id="deleteSelectedComments">Delete Selected</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="commentsTable">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="selectAllComments"></th>
+                                            <th>Content</th>
+                                            <th>Author</th>
+                                            <th>Post</th>
+                                            <th>Parent</th>
+                                            <th>Upvotes</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data loaded via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <nav>
+                                <ul class="pagination" id="commentsPagination"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" class="form-control" id="editUserUsername" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Age</label>
+                                <input type="number" class="form-control" id="editUserAge">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Gender</label>
+                                <input type="text" class="form-control" id="editUserGender">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Occupation</label>
+                                <input type="text" class="form-control" id="editUserOccupation">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Education</label>
+                                <input type="text" class="form-control" id="editUserEducation">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bio</label>
+                        <textarea class="form-control" id="editUserBio" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Interests (JSON)</label>
+                        <textarea class="form-control" id="editUserInterests" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Personality Traits (JSON)</label>
+                        <textarea class="form-control" id="editUserPersonality" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Writing Style</label>
+                        <textarea class="form-control" id="editUserWritingStyle" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveUserChanges">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Subdeaddit Modal -->
+<div class="modal fade" id="editSubdeadditModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Subdeaddit</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editSubdeadditForm">
+                    <input type="hidden" id="editSubdeadditId">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editSubdeadditName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="editSubdeadditDescription" rows="4"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Post Types (JSON)</label>
+                        <textarea class="form-control" id="editSubdeadditPostTypes" rows="6"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSubdeadditChanges">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Post Modal -->
+<div class="modal fade" id="editPostModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Post</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPostForm">
+                    <input type="hidden" id="editPostId">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" id="editPostTitle">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" id="editPostContent" rows="6"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Upvote Count</label>
+                                <input type="number" class="form-control" id="editPostUpvotes">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Post Type</label>
+                                <input type="text" class="form-control" id="editPostType">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="savePostChanges">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Comment Modal -->
+<div class="modal fade" id="editCommentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Comment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editCommentForm">
+                    <input type="hidden" id="editCommentId">
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" id="editCommentContent" rows="6"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Upvote Count</label>
+                        <input type="number" class="form-control" id="editCommentUpvotes">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCommentChanges">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteConfirmMessage"></p>
+                <div id="deleteImpactWarning" class="alert alert-warning" style="display: none;">
+                    <strong>Warning:</strong> <span id="deleteImpactText"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/admin/content.js"></script>
+{% endblock %}
