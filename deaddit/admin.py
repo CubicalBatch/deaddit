@@ -453,6 +453,616 @@ def content():
     )
 
 
+# CRUD API endpoints for content management
+
+
+@admin_bp.route("/api/users")
+@admin_required
+def api_users():
+    """Get users with pagination and search."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    search = request.args.get("search", "")
+
+    query = User.query
+    if search:
+        query = query.filter(
+            User.username.contains(search)
+            | User.occupation.contains(search)
+            | User.bio.contains(search)
+        )
+
+    users = query.order_by(User.username).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify(
+        {
+            "users": [
+                {
+                    "username": user.username,
+                    "age": user.age,
+                    "gender": user.gender,
+                    "occupation": user.occupation,
+                    "education": user.education,
+                    "bio": user.bio,
+                    "interests": user.interests or "",
+                    "personality_traits": user.personality_traits or "",
+                    "writing_style": user.writing_style or "",
+                    "posts_count": Post.query.filter_by(user=user.username).count(),
+                    "comments_count": Comment.query.filter_by(
+                        user=user.username
+                    ).count(),
+                }
+                for user in users.items
+            ],
+            "total": users.total,
+            "pages": users.pages,
+            "current_page": page,
+        }
+    )
+
+
+@admin_bp.route("/api/users/<username>", methods=["PUT"])
+@admin_required
+def api_update_user(username):
+    """Update a user."""
+    user = User.query.get_or_404(username)
+    data = request.json
+
+    try:
+        user.age = data.get("age", user.age)
+        user.gender = data.get("gender", user.gender)
+        user.occupation = data.get("occupation", user.occupation)
+        user.education = data.get("education", user.education)
+        user.bio = data.get("bio", user.bio)
+        user.interests = data.get("interests", user.interests)
+        user.personality_traits = data.get(
+            "personality_traits", user.personality_traits
+        )
+        user.writing_style = data.get("writing_style", user.writing_style)
+
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating user {username}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/users/<username>", methods=["DELETE"])
+@admin_required
+def api_delete_user(username):
+    """Delete a user and all associated content."""
+    user = User.query.get_or_404(username)
+
+    try:
+        # Get impact stats before deletion
+        posts_count = Post.query.filter_by(user=username).count()
+        comments_count = Comment.query.filter_by(user=username).count()
+
+        # Delete associated content (cascade should handle this, but being explicit)
+        Comment.query.filter_by(user=username).delete()
+        Post.query.filter_by(user=username).delete()
+
+        db.session.delete(user)
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted": {
+                    "user": username,
+                    "posts": posts_count,
+                    "comments": comments_count,
+                },
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting user {username}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/users/bulk-delete", methods=["POST"])
+@admin_required
+def api_bulk_delete_users():
+    """Delete multiple users."""
+    usernames = request.json.get("usernames", [])
+    if not usernames:
+        return jsonify({"success": False, "error": "No usernames provided"}), 400
+
+    try:
+        deleted_count = 0
+        total_posts = 0
+        total_comments = 0
+
+        for username in usernames:
+            user = User.query.get(username)
+            if user:
+                posts_count = Post.query.filter_by(user=username).count()
+                comments_count = Comment.query.filter_by(user=username).count()
+
+                Comment.query.filter_by(user=username).delete()
+                Post.query.filter_by(user=username).delete()
+                db.session.delete(user)
+
+                deleted_count += 1
+                total_posts += posts_count
+                total_comments += comments_count
+
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted": {
+                    "users": deleted_count,
+                    "posts": total_posts,
+                    "comments": total_comments,
+                },
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error bulk deleting users: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/subdeaddits")
+@admin_required
+def api_subdeaddits():
+    """Get subdeaddits with pagination and search."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    search = request.args.get("search", "")
+
+    query = Subdeaddit.query
+    if search:
+        query = query.filter(
+            Subdeaddit.name.contains(search) | Subdeaddit.description.contains(search)
+        )
+
+    subdeaddits = query.order_by(Subdeaddit.name).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify(
+        {
+            "subdeaddits": [
+                {
+                    "name": sub.name,
+                    "description": sub.description or "",
+                    "post_types": sub.post_types or "",
+                    "posts_count": Post.query.filter_by(
+                        subdeaddit_name=sub.name
+                    ).count(),
+                }
+                for sub in subdeaddits.items
+            ],
+            "total": subdeaddits.total,
+            "pages": subdeaddits.pages,
+            "current_page": page,
+        }
+    )
+
+
+@admin_bp.route("/api/subdeaddits/<name>", methods=["PUT"])
+@admin_required
+def api_update_subdeaddit(name):
+    """Update a subdeaddit."""
+    subdeaddit = Subdeaddit.query.get_or_404(name)
+    data = request.json
+
+    try:
+        subdeaddit.description = data.get("description", subdeaddit.description)
+
+        # Handle post_types - it should be a JSON string
+        post_types = data.get("post_types")
+        if post_types is not None:
+            if isinstance(post_types, str):
+                # Validate JSON
+                import json
+
+                json.loads(post_types)  # This will raise an exception if invalid
+                subdeaddit.post_types = post_types
+            else:
+                # Convert to JSON string if it's a dict/list
+                import json
+
+                subdeaddit.post_types = json.dumps(post_types)
+
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating subdeaddit {name}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/subdeaddits/<name>", methods=["DELETE"])
+@admin_required
+def api_delete_subdeaddit(name):
+    """Delete a subdeaddit and all associated posts."""
+    subdeaddit = Subdeaddit.query.get_or_404(name)
+
+    try:
+        # Get impact stats before deletion
+        posts_count = Post.query.filter_by(subdeaddit_name=name).count()
+        comments_count = (
+            Comment.query.join(Post).filter(Post.subdeaddit_name == name).count()
+        )
+
+        # Delete associated content
+        # First get comment IDs to delete (can't use join().delete())
+        comment_ids = [c.id for c in Comment.query.join(Post).filter(Post.subdeaddit_name == name).all()]
+        for comment_id in comment_ids:
+            Comment.query.filter_by(id=comment_id).delete()
+
+        Post.query.filter_by(subdeaddit_name=name).delete()
+
+        db.session.delete(subdeaddit)
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted": {
+                    "subdeaddit": name,
+                    "posts": posts_count,
+                    "comments": comments_count,
+                },
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting subdeaddit {name}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/subdeaddits/bulk-delete", methods=["POST"])
+@admin_required
+def api_bulk_delete_subdeaddits():
+    """Delete multiple subdeaddits."""
+    names = request.json.get("names", [])
+    if not names:
+        return jsonify({"success": False, "error": "No names provided"}), 400
+
+    try:
+        deleted_count = 0
+        total_posts = 0
+        total_comments = 0
+
+        for name in names:
+            subdeaddit = Subdeaddit.query.get(name)
+            if subdeaddit:
+                posts_count = Post.query.filter_by(subdeaddit_name=name).count()
+                comments_count = (
+                    Comment.query.join(Post)
+                    .filter(Post.subdeaddit_name == name)
+                    .count()
+                )
+
+                # First get comment IDs to delete (can't use join().delete())
+                comment_ids = [c.id for c in Comment.query.join(Post).filter(Post.subdeaddit_name == name).all()]
+                for comment_id in comment_ids:
+                    Comment.query.filter_by(id=comment_id).delete()
+
+                Post.query.filter_by(subdeaddit_name=name).delete()
+                db.session.delete(subdeaddit)
+
+                deleted_count += 1
+                total_posts += posts_count
+                total_comments += comments_count
+
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted": {
+                    "subdeaddits": deleted_count,
+                    "posts": total_posts,
+                    "comments": total_comments,
+                },
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error bulk deleting subdeaddits: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/posts")
+@admin_required
+def api_posts():
+    """Get posts with pagination, search, and filtering."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    search = request.args.get("search", "")
+    subdeaddit_filter = request.args.get("subdeaddit", "")
+
+    query = Post.query
+    if search:
+        query = query.filter(
+            Post.title.contains(search) | Post.content.contains(search)
+        )
+    if subdeaddit_filter:
+        query = query.filter(Post.subdeaddit_name == subdeaddit_filter)
+
+    posts = query.order_by(desc(Post.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify(
+        {
+            "posts": [
+                {
+                    "id": post.id,
+                    "title": post.title or "",
+                    "content": (
+                        post.content[:200] + "..."
+                        if post.content and len(post.content) > 200
+                        else post.content
+                    )
+                    or "",
+                    "username": post.user,
+                    "subdeaddit_name": post.subdeaddit_name,
+                    "upvote_count": post.upvote_count or 0,
+                    "post_type": post.post_type or "",
+                    "comments_count": Comment.query.filter_by(post_id=post.id).count(),
+                    "created_at": post.created_at.isoformat()
+                    if post.created_at
+                    else "",
+                    "model": post.model or "",
+                }
+                for post in posts.items
+            ],
+            "total": posts.total,
+            "pages": posts.pages,
+            "current_page": page,
+        }
+    )
+
+
+@admin_bp.route("/api/posts/<int:post_id>", methods=["PUT"])
+@admin_required
+def api_update_post(post_id):
+    """Update a post."""
+    post = Post.query.get_or_404(post_id)
+    data = request.json
+
+    try:
+        post.title = data.get("title", post.title)
+        post.content = data.get("content", post.content)
+        post.upvote_count = data.get("upvote_count", post.upvote_count)
+        post.post_type = data.get("post_type", post.post_type)
+
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating post {post_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/posts/<int:post_id>", methods=["DELETE"])
+@admin_required
+def api_delete_post(post_id):
+    """Delete a post and all associated comments."""
+    post = Post.query.get_or_404(post_id)
+
+    try:
+        comments_count = Comment.query.filter_by(post_id=post_id).count()
+
+        # Delete associated comments
+        Comment.query.filter_by(post_id=post_id).delete()
+
+        db.session.delete(post)
+        db.session.commit()
+
+        return jsonify(
+            {"success": True, "deleted": {"post": post_id, "comments": comments_count}}
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting post {post_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/posts/bulk-delete", methods=["POST"])
+@admin_required
+def api_bulk_delete_posts():
+    """Delete multiple posts."""
+    post_ids = request.json.get("post_ids", [])
+    if not post_ids:
+        return jsonify({"success": False, "error": "No post IDs provided"}), 400
+
+    try:
+        deleted_count = 0
+        total_comments = 0
+
+        for post_id in post_ids:
+            post = Post.query.get(post_id)
+            if post:
+                comments_count = Comment.query.filter_by(post_id=post_id).count()
+
+                Comment.query.filter_by(post_id=post_id).delete()
+                db.session.delete(post)
+
+                deleted_count += 1
+                total_comments += comments_count
+
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted": {"posts": deleted_count, "comments": total_comments},
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error bulk deleting posts: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/comments")
+@admin_required
+def api_comments():
+    """Get comments with pagination and search."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    search = request.args.get("search", "")
+
+    query = Comment.query
+    if search:
+        query = query.filter(Comment.content.contains(search))
+
+    comments = query.order_by(desc(Comment.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify(
+        {
+            "comments": [
+                {
+                    "id": comment.id,
+                    "content": (
+                        comment.content[:150] + "..."
+                        if comment.content and len(comment.content) > 150
+                        else comment.content
+                    )
+                    or "",
+                    "username": comment.user,
+                    "post_id": comment.post_id,
+                    "post_title": comment.post.title if comment.post else "Unknown",
+                    "parent_id": comment.parent_id,
+                    "upvote_count": comment.upvote_count or 0,
+                    "created_at": comment.created_at.isoformat()
+                    if comment.created_at
+                    else "",
+                    "model": comment.model or "",
+                }
+                for comment in comments.items
+            ],
+            "total": comments.total,
+            "pages": comments.pages,
+            "current_page": page,
+        }
+    )
+
+
+@admin_bp.route("/api/comments/<int:comment_id>", methods=["PUT"])
+@admin_required
+def api_update_comment(comment_id):
+    """Update a comment."""
+    comment = Comment.query.get_or_404(comment_id)
+    data = request.json
+
+    try:
+        comment.content = data.get("content", comment.content)
+        comment.upvote_count = data.get("upvote_count", comment.upvote_count)
+
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating comment {comment_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/comments/<int:comment_id>", methods=["DELETE"])
+@admin_required
+def api_delete_comment(comment_id):
+    """Delete a comment and all child comments."""
+    comment = Comment.query.get_or_404(comment_id)
+
+    try:
+        # Get all child comments recursively
+        def get_child_comments(parent_id):
+            children = Comment.query.filter_by(parent_id=parent_id).all()
+            all_children = children.copy()
+            for child in children:
+                all_children.extend(get_child_comments(child.id))
+            return all_children
+
+        child_comments = get_child_comments(comment_id)
+        child_count = len(child_comments)
+
+        # Delete child comments first
+        for child in child_comments:
+            db.session.delete(child)
+
+        # Delete the comment itself
+        db.session.delete(comment)
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted": {"comment": comment_id, "child_comments": child_count},
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting comment {comment_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@admin_bp.route("/api/comments/bulk-delete", methods=["POST"])
+@admin_required
+def api_bulk_delete_comments():
+    """Delete multiple comments."""
+    comment_ids = request.json.get("comment_ids", [])
+    if not comment_ids:
+        return jsonify({"success": False, "error": "No comment IDs provided"}), 400
+
+    try:
+        deleted_count = 0
+        total_children = 0
+
+        # Helper function to get child comments
+        def get_child_comments(parent_id):
+            children = Comment.query.filter_by(parent_id=parent_id).all()
+            all_children = children.copy()
+            for child in children:
+                all_children.extend(get_child_comments(child.id))
+            return all_children
+
+        for comment_id in comment_ids:
+            comment = Comment.query.get(comment_id)
+            if comment:
+                child_comments = get_child_comments(comment_id)
+                child_count = len(child_comments)
+
+                # Delete child comments first
+                for child in child_comments:
+                    db.session.delete(child)
+
+                # Delete the comment itself
+                db.session.delete(comment)
+
+                deleted_count += 1
+                total_children += child_count
+
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted": {
+                    "comments": deleted_count,
+                    "child_comments": total_children,
+                },
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error bulk deleting comments: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @admin_bp.route("/analytics")
 @admin_required
 def analytics():
