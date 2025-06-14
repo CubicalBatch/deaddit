@@ -20,11 +20,24 @@
         <div class="header-content">
             <div class="logo-container">
                 <div class="logo-title">
-                    <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
-                    <h1 class="site-title">
-                        <a href="{{ url_for('index',models=request.args.getlist('models')) }}">Deaddit</a>
-                        {% if subdeaddit_name %}<span class="separator"> / </span><a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name,models=request.args.getlist('models')) }}">{{ subdeaddit_name }}</a>{% endif %}
-                    </h1>
+                    <div class="logo-and-title">
+                        <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
+                        <h1 class="site-title">
+                            <a href="{{ url_for('index',models=request.args.getlist('models')) }}">Deaddit</a>
+                            {% if subdeaddit_name %}<span class="separator"> / </span><a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name,models=request.args.getlist('models')) }}">{{ subdeaddit_name }}</a>{% endif %}
+                        </h1>
+                    </div>
+                    <div class="mobile-filter-wrapper">
+                        <button id="filterToggle" class="btn btn-secondary btn-sm mobile-filter-toggle">
+                            <i class="bi bi-funnel"></i> Filter
+                        </button>
+                        <div class="filter-content mobile-filter-dropdown">
+                            <select id="mobileModels" name="models" multiple class="form-control">
+                                <!-- Options will be populated dynamically -->
+                            </select>
+                            <button id="mobileResetFilter" class="btn btn-secondary btn-sm">Reset</button>
+                        </div>
+                    </div>
                 </div>
                 <p class="ai-generated">
                     All content is AI Generated <span class="separator">|</span> <a href="https://github.com/CubicalBatch/deaddit" target="_blank"><i class="bi bi-github"></i> Github</a>
@@ -32,10 +45,12 @@
             </div>
             <div class="right-content">
                 <div class="model-selector">
-                    <select id="models" name="models" multiple class="form-control">
-                        <!-- Options will be populated dynamically -->
-                    </select>
-                    <button id="resetFilter" class="btn btn-secondary btn-sm">Reset</button>
+                    <div class="filter-content">
+                        <select id="models" name="models" multiple class="form-control">
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                        <button id="resetFilter" class="btn btn-secondary btn-sm">Reset</button>
+                    </div>
                 </div>
                 <nav class="nav-links">
                     <a href="{{ url_for('list_subdeaddit',models=request.args.getlist('models')) }}">Communities</a>
@@ -55,11 +70,20 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     <script>
         $(document).ready(function() {
-            const modelSelect = $('#models');
-            const resetButton = $('#resetFilter');
+            const desktopModelSelect = $('#models');
+            const mobileModelSelect = $('#mobileModels');
+            const desktopResetButton = $('#resetFilter');
+            const mobileResetButton = $('#mobileResetFilter');
 
-            // Initialize Select2
-            modelSelect.select2({
+            // Initialize Select2 for both desktop and mobile
+            desktopModelSelect.select2({
+                theme: 'bootstrap',
+                placeholder: 'Filter by models',
+                allowClear: true,
+                closeOnSelect: false
+            });
+
+            mobileModelSelect.select2({
                 theme: 'bootstrap',
                 placeholder: 'Filter by models',
                 allowClear: true,
@@ -67,8 +91,7 @@
             });
 
             // Function to update URL and reload page
-            function updateModels() {
-                const selectedModels = modelSelect.val() || [];
+            function updateModels(selectedModels) {
                 const currentUrl = new URL(window.location.href);
                 const currentModels = currentUrl.searchParams.getAll('models');
                 
@@ -80,29 +103,81 @@
                 }
             }
 
-            // Fetch available models and populate the dropdown
+            // Track if we're syncing to prevent infinite loops
+            let isSyncing = false;
+
+            // Sync selections between desktop and mobile
+            function syncSelections(sourceSelect, targetSelect) {
+                if (isSyncing) return;
+                isSyncing = true;
+                
+                const selectedModels = sourceSelect.val() || [];
+                targetSelect.val(selectedModels).trigger('change.select2');
+                updateModels(selectedModels);
+                
+                isSyncing = false;
+            }
+
+            // Fetch available models and populate both dropdowns
             fetch('/api/available_models')
                 .then(response => response.json())
                 .then(data => {
                     data.models.forEach(model => {
-                        const option = new Option(model, model);
-                        modelSelect.append(option);
+                        const desktopOption = new Option(model, model);
+                        const mobileOption = new Option(model, model);
+                        desktopModelSelect.append(desktopOption);
+                        mobileModelSelect.append(mobileOption);
                     });
 
                     // Set selected models based on URL parameters
                     const urlParams = new URLSearchParams(window.location.search);
                     const selectedModels = urlParams.getAll('models');
-                    modelSelect.val(selectedModels).trigger('change.select2');
+                    isSyncing = true;
+                    desktopModelSelect.val(selectedModels).trigger('change.select2');
+                    mobileModelSelect.val(selectedModels).trigger('change.select2');
+                    isSyncing = false;
                 });
 
             // Apply filter when selection changes
-            modelSelect.on('change', function() {
-                updateModels();
+            desktopModelSelect.on('change', function() {
+                if (!isSyncing) {
+                    syncSelections($(this), mobileModelSelect);
+                }
             });
 
-            // Reset filter
-            resetButton.on('click', function() {
-                modelSelect.val(null).trigger('change');
+            mobileModelSelect.on('change', function() {
+                if (!isSyncing) {
+                    syncSelections($(this), desktopModelSelect);
+                }
+            });
+
+            // Reset filter buttons
+            desktopResetButton.on('click', function() {
+                desktopModelSelect.val(null).trigger('change');
+            });
+
+            mobileResetButton.on('click', function() {
+                mobileModelSelect.val(null).trigger('change');
+            });
+
+            // Mobile filter toggle
+            $('#filterToggle').on('click', function(e) {
+                e.stopPropagation();
+                $('.mobile-filter-dropdown').toggleClass('show');
+                $(this).toggleClass('active');
+            });
+
+            // Close mobile filter when clicking outside
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.mobile-filter-wrapper').length) {
+                    $('.mobile-filter-dropdown').removeClass('show');
+                    $('#filterToggle').removeClass('active');
+                }
+            });
+
+            // Prevent dropdown from closing when clicking inside it
+            $('.mobile-filter-dropdown').on('click', function(e) {
+                e.stopPropagation();
             });
 
             // Night mode toggle

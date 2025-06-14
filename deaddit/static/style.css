@@ -369,6 +369,12 @@ body {
     gap: var(--space-md);
 }
 
+.logo-and-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
 .logo {
     height: 40px;
     width: auto;
@@ -562,6 +568,43 @@ body {
     transition: all 0.2s ease;
 }
 
+/* Mobile filter styles */
+.mobile-filter-wrapper {
+    display: none;
+    position: relative;
+}
+
+.mobile-filter-toggle {
+    display: none;
+}
+
+.mobile-filter-dropdown {
+    display: none !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 250px;
+    z-index: 1000;
+    box-shadow: var(--shadow-medium);
+}
+
+.mobile-filter-dropdown.show {
+    display: flex !important;
+}
+
+.filter-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
 /* Media query for mobile devices */
 @media (max-width: 768px) {
     .header-content {
@@ -571,15 +614,53 @@ body {
         padding: var(--space-md);
     }
 
+    .logo-container {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-xs);
+    }
+
+    .logo-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-md);
+        position: relative;
+    }
+
+    .logo-and-title {
+        display: flex;
+        align-items: center;
+        gap: var(--space-md);
+        flex: 1;
+        min-width: 0;
+    }
+
     .right-content {
         align-items: stretch;
         gap: var(--space-md);
     }
 
     .model-selector {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--space-sm);
+        display: none;
+    }
+
+    .mobile-filter-wrapper {
+        display: block;
+    }
+
+    .mobile-filter-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-xs);
+        flex-shrink: 0;
+        font-size: var(--font-size-sm);
+        padding: var(--space-xs) var(--space-sm);
+    }
+
+    .mobile-filter-toggle.active {
+        background-color: var(--primary-color);
+        color: white;
     }
 
     .select2-container {
