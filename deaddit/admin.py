@@ -38,10 +38,12 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 def admin_required(f):
     """Decorator to check admin authentication when API_TOKEN is set."""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # Get API_TOKEN from environment
         import os
+
         api_token = os.environ.get("API_TOKEN")
 
         # If no API_TOKEN is set, allow access
@@ -53,6 +55,7 @@ def admin_required(f):
             return redirect(url_for("admin.login"))
 
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -60,6 +63,7 @@ def admin_required(f):
 def login():
     """Admin login page."""
     import os
+
     api_token = os.environ.get("API_TOKEN")
 
     # If no API_TOKEN is set, redirect to dashboard

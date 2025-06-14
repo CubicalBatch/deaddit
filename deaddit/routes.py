@@ -231,7 +231,7 @@ def post(subdeaddit_name, post_id):
 @app.route("/list_subdeaddit")
 def list_subdeaddit():
     page = request.args.get("page", default=1, type=int)
-    subdeaddits_per_page = 100
+    subdeaddits_per_page = 50
 
     # Get selected models from query parameters
     selected_models = request.args.getlist("models")
@@ -328,7 +328,7 @@ def user_profile(username):
 @app.route("/users")
 def list_users():
     page = request.args.get("page", default=1, type=int)
-    users_per_page = 100
+    users_per_page = 50
 
     # Count the total number of users
     total_users = db.session.query(func.count(User.username)).scalar()

@@ -16,40 +16,38 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo-container">
-                    <div class="logo-title">
-                        <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
-                        <h1 class="site-title">
-                            <a href="{{ url_for('index',models=request.args.getlist('models')) }}">Deaddit</a>
-                            {% if subdeaddit_name %} | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name,models=request.args.getlist('models')) }}">{{ subdeaddit_name }}</a>{% endif %}
-                        </h1>
-                    </div>
-                    <div class="ai-generated">
-                        All content is AI Generated | <a href="https://github.com/CubicalBatch/deaddit" target="_blank"><i class="bi bi-github"></i> Github</a>
-                    </div>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-container">
+                <div class="logo-title">
+                    <img src="{{ url_for('static', filename='logo_small.png') }}" alt="Deaddit Logo" class="logo">
+                    <h1 class="site-title">
+                        <a href="{{ url_for('index',models=request.args.getlist('models')) }}">Deaddit</a>
+                        {% if subdeaddit_name %}<span class="separator"> / </span><a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name,models=request.args.getlist('models')) }}">{{ subdeaddit_name }}</a>{% endif %}
+                    </h1>
                 </div>
-                <div class="right-content">
-                    <div class="model-selector">
-                        <select id="models" name="models" multiple class="form-control">
-                            <!-- Options will be populated dynamically -->
-                        </select>
-                        <button id="resetFilter" class="btn btn-secondary btn-sm">Reset</button>
-                    </div>
-                    <div class="nav-links">
-                        <a href="{{ url_for('list_subdeaddit',models=request.args.getlist('models')) }}">List all Subdeaddits</a>
-                        | 
-                        <a href="{{ url_for('list_users',models=request.args.getlist('models')) }}">Users</a>
-                    </div>
+                <p class="ai-generated">
+                    All content is AI Generated <span class="separator">|</span> <a href="https://github.com/CubicalBatch/deaddit" target="_blank"><i class="bi bi-github"></i> Github</a>
+                </p>
+            </div>
+            <div class="right-content">
+                <div class="model-selector">
+                    <select id="models" name="models" multiple class="form-control">
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                    <button id="resetFilter" class="btn btn-secondary btn-sm">Reset</button>
                 </div>
+                <nav class="nav-links">
+                    <a href="{{ url_for('list_subdeaddit',models=request.args.getlist('models')) }}">Communities</a>
+                    <span class="separator">|</span>
+                    <a href="{{ url_for('list_users',models=request.args.getlist('models')) }}">Users</a>
+                </nav>
             </div>
         </div>
-    </div>
-    <div class="container content">
+    </header>
+    <main class="content">
         {% block content %}{% endblock %}
-    </div>
+    </main>
     <br>
     
     <!-- Add jQuery and Select2 JS -->
@@ -110,32 +108,34 @@
             // Night mode toggle
             function toggleNightMode() {
                 $('body').toggleClass('night-mode');
-                $('.header').toggleClass('night-mode');
-                $('.header a').toggleClass('night-mode');
-                $('.post').toggleClass('night-mode');
-                $('.post-info').toggleClass('night-mode');
-                $('.upvote').toggleClass('night-mode');
-                $('.comment').toggleClass('night-mode');
-                $('.load-more a').toggleClass('night-mode');
-                $('.user-profile h1').toggleClass('night-mode');
-                $('.info-item').toggleClass('night-mode');
-                $('.info-label').toggleClass('night-mode');
-                $('.info-value').toggleClass('night-mode');
-                $('.interest-tag').toggleClass('night-mode');
             }
 
             // Add night mode toggle button next to Github link
-            $('.ai-generated').append(' | <a id="nightModeToggle" href="#"><i class="bi bi-sun-fill"></i> Night Mode</a>');
+            $('.ai-generated').append(' <span class="separator">|</span> <a id="nightModeToggle" href="#" title="Toggle dark mode"><i class="bi bi-moon-fill"></i></a>');
 
             // Handle night mode toggle
-            $('#nightModeToggle').on('click', function() {
+            $('#nightModeToggle').on('click', function(e) {
+                e.preventDefault();
                 toggleNightMode();
-                localStorage.setItem('nightMode', $('body').hasClass('night-mode'));
+                const isNightMode = $('body').hasClass('night-mode');
+                localStorage.setItem('nightMode', isNightMode);
+                
+                // Update icon
+                const icon = $(this).find('i');
+                if (isNightMode) {
+                    icon.removeClass('bi-moon-fill').addClass('bi-sun-fill');
+                    $(this).attr('title', 'Switch to light mode');
+                } else {
+                    icon.removeClass('bi-sun-fill').addClass('bi-moon-fill');
+                    $(this).attr('title', 'Switch to dark mode');
+                }
             });
 
             // Check local storage for night mode preference
             if (localStorage.getItem('nightMode') === 'true') {
                 toggleNightMode();
+                $('#nightModeToggle i').removeClass('bi-moon-fill').addClass('bi-sun-fill');
+                $('#nightModeToggle').attr('title', 'Switch to light mode');
             }
         });
     </script>
