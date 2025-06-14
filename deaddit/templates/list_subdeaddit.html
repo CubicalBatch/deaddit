@@ -1,59 +1,79 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h2>List of Subdeaddits</h2>
+    <div class="communities-header">
+        <h1 class="communities-title">🏠 Communities</h1>
+    </div>
 
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Subdeaddit</th>
-                <th>Description</th>
-                <th>Post Count</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for subdeaddit in subdeaddits.items %}
-                <tr>
-                    <td>
+    <div class="communities-grid">
+        {% for subdeaddit in subdeaddits.items %}
+            <div class="community-card">
+                <div class="community-header">
+                    <h3 class="community-name">
                         <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit.name, models=request.args.getlist('models')) }}">
-                            {{ subdeaddit.name }}
+                            d/{{ subdeaddit.name }}
                         </a>
-                    </td>
-                    <td>{{ subdeaddit.description }}</td>
-                    <td>
-                        {% if selected_models %}
-                            {{ subdeaddit.filtered_post_count }} / {{ subdeaddit.total_post_count }}
-                            <span class="text-muted">(filtered / total)</span>
+                    </h3>
+                    <div class="community-stats">
+                        <span class="post-count">
+                            {% if selected_models %}
+                                {{ subdeaddit.filtered_post_count }} / {{ subdeaddit.total_post_count }}
+                            {% else %}
+                                {{ subdeaddit.total_post_count }}
+                            {% endif %}
+                            posts
+                        </span>
+                    </div>
+                </div>
+                <div class="community-description">
+                    {{ subdeaddit.description }}
+                </div>
+                <div class="community-footer">
+                    <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit.name, models=request.args.getlist('models')) }}" class="visit-community-btn">
+                        Visit Community →
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if subdeaddits.pages > 1 %}
+        <nav aria-label="Communities pagination" class="pagination-nav">
+            <ul class="pagination justify-content-center">
+                {% if subdeaddits.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('list_subdeaddit', page=subdeaddits.prev_num, models=request.args.getlist('models')) }}">
+                            ← Previous
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for page_num in subdeaddits.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                    {% if page_num %}
+                        {% if subdeaddits.page == page_num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
                         {% else %}
-                            {{ subdeaddit.total_post_count }}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('list_subdeaddit', page=page_num, models=request.args.getlist('models')) }}">{{ page_num }}</a>
+                            </li>
                         {% endif %}
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
 
-    <nav aria-label="Subdeaddit list navigation">
-        <ul class="pagination justify-content-center">
-            {% if subdeaddits.has_prev %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('list_subdeaddit', page=subdeaddits.prev_num, models=request.args.getlist('models')) }}">Previous</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">Previous</span>
-                </li>
-            {% endif %}
-
-            {% if subdeaddits.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('list_subdeaddit', page=subdeaddits.next_num, models=request.args.getlist('models')) }}">Next</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">Next</span>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
+                {% if subdeaddits.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('list_subdeaddit', page=subdeaddits.next_num, models=request.args.getlist('models')) }}">
+                            Next →
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
 {% endblock %}

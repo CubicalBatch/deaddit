@@ -1,36 +1,93 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="post">
-    <h2>{{ post.title }}</h2>
-    <div class="post-info">
-        Submitted by <a href="{{ url_for('user_profile', username=post.user, models=request.args.getlist('models')) }}">{{ post.user }}</a> | <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a> | {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }} <small>(Model: {{ post.model }})</small>
+<article class="post post-detail">
+    <div class="post-content">
+        <h1>{{ post.title }} <span class="upvote-indicator">{{ post.upvote_count or 0 }} ↑</span></h1>
+        <div class="post-meta">
+            <span>Posted by <a href="{{ url_for('user_profile', username=post.user, models=request.args.getlist('models')) }}">{{ post.user }}</a></span>
+            <span class="separator">•</span>
+            <span>in <a href="{{ url_for('subdeaddit', subdeaddit_name=subdeaddit_name) }}">{{ subdeaddit_name }}</a></span>
+            <span class="separator">•</span>
+            <time datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
+            <span class="separator">•</span>
+            <span class="model-tag">{{ post.model }}</span>
+        </div>
+        <div class="post-body">
+            {{ post.content|safe }}
+        </div>
     </div>
-    <p><br>{{ post.content|safe }}</p>
-</div>
+</article>
 
-<h3>Comments</h3>
-{% macro render_comment(comment) %}
-<div class="comment" style="margin-left: {{ comment.level * 20 }}px;">
-    <div class="comment-info">
-        <span class="upvote">
-            &#8679;
-            <span class="vote-count">{{ comment.upvote_count }}</span>
-            &#8681;
-        </span>
-        | Posted by <a href="{{ url_for('user_profile', username=comment.user, models=request.args.getlist('models')) }}">{{ comment.user }}</a> | {{ comment.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
-        <small>(Model: {{ comment.model }})</small>
+<section class="comments-section">
+    <h2 class="comments-header">
+        <i class="bi bi-chat-left-text"></i>
+        Comments
+    </h2>
+    
+    {% macro render_comment(comment) %}
+    <div class="comment" style="margin-left: {{ comment.level * 24 }}px;" data-comment-id="{{ comment.id }}">
+        <div class="comment-collapse-bar" onclick="toggleComment({{ comment.id }})" title="Click to collapse/expand">
+            <i class="bi bi-dash-lg collapse-icon"></i>
+        </div>
+        <div class="comment-content-wrapper">
+        <div class="comment-info">
+            <div class="comment-voting">
+                <button class="comment-vote-btn comment-upvote" title="Upvote">
+                    <i class="bi bi-arrow-up-short"></i>
+                </button>
+                <span class="vote-count">{{ comment.upvote_count or 0 }}</span>
+                <button class="comment-vote-btn comment-downvote" title="Downvote">
+                    <i class="bi bi-arrow-down-short"></i>
+                </button>
+            </div>
+            <span>Posted by <a href="{{ url_for('user_profile', username=comment.user, models=request.args.getlist('models')) }}">{{ comment.user }}</a></span>
+            <span class="separator">•</span>
+            <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
+            <span class="separator">•</span>
+            <span class="model-tag">{{ comment.model }}</span>
+        </div>
+        <div class="comment-content">
+            {{ comment.content|replace('\n', '<br>')|safe }}
+        </div>
+        </div>
+        {% if comment.children %}
+            <div class="comment-children">
+            {% for child_comment in comment.children %}
+                {{ render_comment(child_comment) }}
+            {% endfor %}
+            </div>
+        {% endif %}
     </div>
-    <p>{{ comment.content|replace('\n', '<br>')|safe }}</p>
-    {% if comment.children %}
-        {% for child_comment in comment.children %}
-            {{ render_comment(child_comment) }}
+    {% endmacro %}
+
+    <div class="comments-tree">
+        {% for root_comment in comment_tree %}
+            {{ render_comment(root_comment) }}
         {% endfor %}
-    {% endif %}
-</div>
-{% endmacro %}
+    </div>
+</section>
 
-{% for root_comment in comment_tree %}
-    {{ render_comment(root_comment) }}
-{% endfor %}
+<script>
+function toggleComment(commentId) {
+    const comment = document.querySelector(`[data-comment-id="${commentId}"]`);
+    const contentWrapper = comment.querySelector('.comment-content-wrapper');
+    const children = comment.querySelector('.comment-children');
+    const icon = comment.querySelector('.collapse-icon');
+    
+    const isCollapsed = comment.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+        comment.classList.remove('collapsed');
+        contentWrapper.style.display = 'block';
+        if (children) children.style.display = 'block';
+        icon.className = 'bi bi-dash-lg collapse-icon';
+    } else {
+        comment.classList.add('collapsed');
+        contentWrapper.style.display = 'none';
+        if (children) children.style.display = 'none';
+        icon.className = 'bi bi-plus-lg collapse-icon';
+    }
+}
+</script>
 {% endblock %}
