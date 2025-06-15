@@ -2,6 +2,99 @@
 
 {% block title %}Content Management{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Mobile-optimized styles for content management */
+    @media (max-width: 767px) {
+        .table-responsive {
+            font-size: 0.85rem;
+        }
+        
+        .table th, .table td {
+            padding: 0.5rem 0.25rem;
+            vertical-align: middle;
+        }
+        
+        .table .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table .btn-group {
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .table .btn-group .btn {
+            border-radius: 0.25rem !important;
+            margin-bottom: 2px;
+        }
+        
+        .pagination {
+            justify-content: center;
+        }
+        
+        .pagination .page-link {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        /* Hide less important columns on mobile */
+        .table .d-none-mobile {
+            display: none !important;
+        }
+        
+        /* Make action buttons stack vertically on mobile */
+        .table .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 80px;
+        }
+        
+        .table .action-buttons .btn {
+            width: 100%;
+            padding: 0.25rem;
+            font-size: 0.7rem;
+        }
+        
+        /* Improve modal sizing on mobile */
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+        
+        .modal-lg {
+            max-width: calc(100% - 1rem);
+        }
+        
+        /* Better touch targets for checkboxes */
+        .table input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+    }
+    
+    /* Better spacing for statistics cards */
+    .stats-card {
+        min-height: 80px;
+    }
+    
+    /* Improved tab styling */
+    .nav-tabs .nav-link {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    @media (max-width: 576px) {
+        .nav-tabs .nav-link {
+            padding: 0.5rem 0.25rem;
+            font-size: 0.8rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="row">
@@ -9,61 +102,86 @@
             <h1>Content Management</h1>
             
             <!-- Content Statistics -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Users</h5>
-                            <h3 class="text-primary">{{ content_stats.users }}</h3>
+            <div class="row mb-4 g-2">
+                <div class="col-6 col-lg-3">
+                    <div class="card text-center h-100">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="bi bi-people text-primary me-2 fs-4"></i>
+                                <div>
+                                    <div class="fs-6 text-muted">Users</div>
+                                    <div class="h5 mb-0 text-primary">{{ content_stats.users }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Subdeaddits</h5>
-                            <h3 class="text-success">{{ content_stats.subdeaddits }}</h3>
+                <div class="col-6 col-lg-3">
+                    <div class="card text-center h-100">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="bi bi-collection text-success me-2 fs-4"></i>
+                                <div>
+                                    <div class="fs-6 text-muted">Subdeaddits</div>
+                                    <div class="h5 mb-0 text-success">{{ content_stats.subdeaddits }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Posts</h5>
-                            <h3 class="text-info">{{ content_stats.posts }}</h3>
+                <div class="col-6 col-lg-3">
+                    <div class="card text-center h-100">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="bi bi-file-text text-info me-2 fs-4"></i>
+                                <div>
+                                    <div class="fs-6 text-muted">Posts</div>
+                                    <div class="h5 mb-0 text-info">{{ content_stats.posts }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Comments</h5>
-                            <h3 class="text-warning">{{ content_stats.comments }}</h3>
+                <div class="col-6 col-lg-3">
+                    <div class="card text-center h-100">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="bi bi-chat text-warning me-2 fs-4"></i>
+                                <div>
+                                    <div class="fs-6 text-muted">Comments</div>
+                                    <div class="h5 mb-0 text-warning">{{ content_stats.comments }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Content Management Tabs -->
-            <ul class="nav nav-tabs" id="contentTabs" role="tablist">
+            <ul class="nav nav-tabs nav-fill" id="contentTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
-                        Users
+                    <button class="nav-link active d-flex align-items-center justify-content-center" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
+                        <i class="bi bi-people me-1 d-none d-sm-inline"></i>
+                        <span>Users</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="subdeaddits-tab" data-bs-toggle="tab" data-bs-target="#subdeaddits" type="button" role="tab">
-                        Subdeaddits
+                    <button class="nav-link d-flex align-items-center justify-content-center" id="subdeaddits-tab" data-bs-toggle="tab" data-bs-target="#subdeaddits" type="button" role="tab">
+                        <i class="bi bi-collection me-1 d-none d-sm-inline"></i>
+                        <span class="d-none d-sm-inline">Subdeaddits</span>
+                        <span class="d-sm-none">Subs</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="posts-tab" data-bs-toggle="tab" data-bs-target="#posts" type="button" role="tab">
-                        Posts
+                    <button class="nav-link d-flex align-items-center justify-content-center" id="posts-tab" data-bs-toggle="tab" data-bs-target="#posts" type="button" role="tab">
+                        <i class="bi bi-file-text me-1 d-none d-sm-inline"></i>
+                        <span>Posts</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments" type="button" role="tab">
-                        Comments
+                    <button class="nav-link d-flex align-items-center justify-content-center" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments" type="button" role="tab">
+                        <i class="bi bi-chat me-1 d-none d-sm-inline"></i>
+                        <span>Comments</span>
                     </button>
                 </li>
             </ul>
@@ -72,11 +190,22 @@
                 <!-- Users Tab -->
                 <div class="tab-pane fade show active" id="users" role="tabpanel">
                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Users Management</h5>
-                            <div class="d-flex gap-2">
-                                <input type="text" class="form-control" id="usersSearch" placeholder="Search users..." style="width: 200px;">
-                                <button class="btn btn-danger" id="deleteSelectedUsers">Delete Selected</button>
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0">Users Management</h5>
+                                <button class="btn btn-outline-secondary btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#usersControls">
+                                    <i class="bi bi-funnel"></i>
+                                </button>
+                            </div>
+                            <div class="collapse d-md-block" id="usersControls">
+                                <div class="d-flex flex-column flex-md-row gap-2">
+                                    <input type="text" class="form-control flex-grow-1" id="usersSearch" placeholder="Search users...">
+                                    <button class="btn btn-danger" id="deleteSelectedUsers">
+                                        <i class="bi bi-trash me-1"></i>
+                                        <span class="d-none d-sm-inline">Delete Selected</span>
+                                        <span class="d-sm-none">Delete</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body">
@@ -86,11 +215,11 @@
                                         <tr>
                                             <th><input type="checkbox" id="selectAllUsers"></th>
                                             <th>Username</th>
-                                            <th>Age</th>
-                                            <th>Gender</th>
-                                            <th>Occupation</th>
-                                            <th>Posts</th>
-                                            <th>Comments</th>
+                                            <th class="d-none d-md-table-cell">Age</th>
+                                            <th class="d-none d-lg-table-cell">Gender</th>
+                                            <th class="d-none d-lg-table-cell">Occupation</th>
+                                            <th class="d-none d-sm-table-cell">Posts</th>
+                                            <th class="d-none d-sm-table-cell">Comments</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -109,11 +238,22 @@
                 <!-- Subdeaddits Tab -->
                 <div class="tab-pane fade" id="subdeaddits" role="tabpanel">
                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Subdeaddits Management</h5>
-                            <div class="d-flex gap-2">
-                                <input type="text" class="form-control" id="subdeadditsSearch" placeholder="Search subdeaddits..." style="width: 200px;">
-                                <button class="btn btn-danger" id="deleteSelectedSubdeaddits">Delete Selected</button>
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0">Subdeaddits Management</h5>
+                                <button class="btn btn-outline-secondary btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#subdeadditsControls">
+                                    <i class="bi bi-funnel"></i>
+                                </button>
+                            </div>
+                            <div class="collapse d-md-block" id="subdeadditsControls">
+                                <div class="d-flex flex-column flex-md-row gap-2">
+                                    <input type="text" class="form-control flex-grow-1" id="subdeadditsSearch" placeholder="Search subdeaddits...">
+                                    <button class="btn btn-danger" id="deleteSelectedSubdeaddits">
+                                        <i class="bi bi-trash me-1"></i>
+                                        <span class="d-none d-sm-inline">Delete Selected</span>
+                                        <span class="d-sm-none">Delete</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body">
@@ -123,9 +263,9 @@
                                         <tr>
                                             <th><input type="checkbox" id="selectAllSubdeaddits"></th>
                                             <th>Name</th>
-                                            <th>Description</th>
-                                            <th>Posts</th>
-                                            <th>Created</th>
+                                            <th class="d-none d-md-table-cell">Description</th>
+                                            <th class="d-none d-sm-table-cell">Posts</th>
+                                            <th class="d-none d-lg-table-cell">Created</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -144,14 +284,25 @@
                 <!-- Posts Tab -->
                 <div class="tab-pane fade" id="posts" role="tabpanel">
                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Posts Management</h5>
-                            <div class="d-flex gap-2">
-                                <select class="form-select" id="postsSubdeadditFilter" style="width: 150px;">
-                                    <option value="">All Subdeaddits</option>
-                                </select>
-                                <input type="text" class="form-control" id="postsSearch" placeholder="Search posts..." style="width: 200px;">
-                                <button class="btn btn-danger" id="deleteSelectedPosts">Delete Selected</button>
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0">Posts Management</h5>
+                                <button class="btn btn-outline-secondary btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#postsControls">
+                                    <i class="bi bi-funnel"></i>
+                                </button>
+                            </div>
+                            <div class="collapse d-md-block" id="postsControls">
+                                <div class="d-flex flex-column flex-md-row gap-2">
+                                    <select class="form-select" id="postsSubdeadditFilter">
+                                        <option value="">All Subdeaddits</option>
+                                    </select>
+                                    <input type="text" class="form-control flex-grow-1" id="postsSearch" placeholder="Search posts...">
+                                    <button class="btn btn-danger" id="deleteSelectedPosts">
+                                        <i class="bi bi-trash me-1"></i>
+                                        <span class="d-none d-sm-inline">Delete Selected</span>
+                                        <span class="d-sm-none">Delete</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body">
@@ -161,11 +312,11 @@
                                         <tr>
                                             <th><input type="checkbox" id="selectAllPosts"></th>
                                             <th>Title</th>
-                                            <th>Author</th>
-                                            <th>Subdeaddit</th>
-                                            <th>Upvotes</th>
-                                            <th>Comments</th>
-                                            <th>Created</th>
+                                            <th class="d-none d-sm-table-cell">Author</th>
+                                            <th class="d-none d-md-table-cell">Subdeaddit</th>
+                                            <th class="d-none d-sm-table-cell">Upvotes</th>
+                                            <th class="d-none d-lg-table-cell">Comments</th>
+                                            <th class="d-none d-lg-table-cell">Created</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -184,11 +335,22 @@
                 <!-- Comments Tab -->
                 <div class="tab-pane fade" id="comments" role="tabpanel">
                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Comments Management</h5>
-                            <div class="d-flex gap-2">
-                                <input type="text" class="form-control" id="commentsSearch" placeholder="Search comments..." style="width: 200px;">
-                                <button class="btn btn-danger" id="deleteSelectedComments">Delete Selected</button>
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0">Comments Management</h5>
+                                <button class="btn btn-outline-secondary btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#commentsControls">
+                                    <i class="bi bi-funnel"></i>
+                                </button>
+                            </div>
+                            <div class="collapse d-md-block" id="commentsControls">
+                                <div class="d-flex flex-column flex-md-row gap-2">
+                                    <input type="text" class="form-control flex-grow-1" id="commentsSearch" placeholder="Search comments...">
+                                    <button class="btn btn-danger" id="deleteSelectedComments">
+                                        <i class="bi bi-trash me-1"></i>
+                                        <span class="d-none d-sm-inline">Delete Selected</span>
+                                        <span class="d-sm-none">Delete</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body">
@@ -198,11 +360,11 @@
                                         <tr>
                                             <th><input type="checkbox" id="selectAllComments"></th>
                                             <th>Content</th>
-                                            <th>Author</th>
-                                            <th>Post</th>
-                                            <th>Parent</th>
-                                            <th>Upvotes</th>
-                                            <th>Created</th>
+                                            <th class="d-none d-sm-table-cell">Author</th>
+                                            <th class="d-none d-md-table-cell">Post</th>
+                                            <th class="d-none d-lg-table-cell">Parent</th>
+                                            <th class="d-none d-sm-table-cell">Upvotes</th>
+                                            <th class="d-none d-lg-table-cell">Created</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -234,36 +396,38 @@
                 <form id="editUserForm">
                     <input type="hidden" id="editUserId">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <div class="mb-3">
                                 <label class="form-label">Username</label>
                                 <input type="text" class="form-control" id="editUserUsername" readonly>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                    </div>
+                    <div class="row">
+                        <div class="col-6 col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">Age</label>
                                 <input type="number" class="form-control" id="editUserAge">
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-6 col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">Gender</label>
                                 <input type="text" class="form-control" id="editUserGender">
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Occupation</label>
-                                <input type="text" class="form-control" id="editUserOccupation">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">Education</label>
                                 <input type="text" class="form-control" id="editUserEducation">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">Occupation</label>
+                                <input type="text" class="form-control" id="editUserOccupation">
                             </div>
                         </div>
                     </div>
@@ -346,13 +510,13 @@
                         <textarea class="form-control" id="editPostContent" rows="6"></textarea>
                     </div>
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-6">
                             <div class="mb-3">
                                 <label class="form-label">Upvote Count</label>
                                 <input type="number" class="form-control" id="editPostUpvotes">
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-6">
                             <div class="mb-3">
                                 <label class="form-label">Post Type</label>
                                 <input type="text" class="form-control" id="editPostType">

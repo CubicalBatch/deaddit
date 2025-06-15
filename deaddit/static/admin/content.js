@@ -139,18 +139,22 @@ class ContentManager {
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${user.username}"></td>
                 <td>${user.username}</td>
-                <td>${user.age || ''}</td>
-                <td>${user.gender || ''}</td>
-                <td>${user.occupation || ''}</td>
-                <td>${user.posts_count}</td>
-                <td>${user.comments_count}</td>
+                <td class="d-none d-md-table-cell">${user.age || ''}</td>
+                <td class="d-none d-lg-table-cell">${user.gender || ''}</td>
+                <td class="d-none d-lg-table-cell">${user.occupation || ''}</td>
+                <td class="d-none d-sm-table-cell">${user.posts_count}</td>
+                <td class="d-none d-sm-table-cell">${user.comments_count}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="contentManager.editUser('${user.username}')">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="contentManager.deleteUser('${user.username}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-primary" onclick="contentManager.editUser('${user.username}')" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                            <span class="d-none d-sm-inline ms-1">Edit</span>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="contentManager.deleteUser('${user.username}')" title="Delete">
+                            <i class="bi bi-trash"></i>
+                            <span class="d-none d-sm-inline ms-1">Delete</span>
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(row);
@@ -168,16 +172,20 @@ class ContentManager {
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${sub.name}"></td>
                 <td>${sub.name}</td>
-                <td>${this.truncate(sub.description, 100)}</td>
-                <td>${sub.posts_count}</td>
-                <td>-</td>
+                <td class="d-none d-md-table-cell">${this.truncate(sub.description, 100)}</td>
+                <td class="d-none d-sm-table-cell">${sub.posts_count}</td>
+                <td class="d-none d-lg-table-cell">-</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="contentManager.editSubdeaddit('${sub.name}')">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="contentManager.deleteSubdeaddit('${sub.name}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-primary" onclick="contentManager.editSubdeaddit('${sub.name}')" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                            <span class="d-none d-sm-inline ms-1">Edit</span>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="contentManager.deleteSubdeaddit('${sub.name}')" title="Delete">
+                            <i class="bi bi-trash"></i>
+                            <span class="d-none d-sm-inline ms-1">Delete</span>
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(row);
@@ -196,21 +204,26 @@ class ContentManager {
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${post.id}"></td>
                 <td>${this.truncate(post.title, 50)}</td>
-                <td>${post.username}</td>
-                <td>${post.subdeaddit_name}</td>
-                <td>${post.upvote_count}</td>
-                <td>${post.comments_count}</td>
-                <td>${createdDate}</td>
+                <td class="d-none d-sm-table-cell">${post.username}</td>
+                <td class="d-none d-md-table-cell">${post.subdeaddit_name}</td>
+                <td class="d-none d-sm-table-cell">${post.upvote_count}</td>
+                <td class="d-none d-lg-table-cell">${post.comments_count}</td>
+                <td class="d-none d-lg-table-cell">${createdDate}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="contentManager.editPost(${post.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="contentManager.deletePost(${post.id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                    <a href="/post/${post.id}" class="btn btn-sm btn-info" target="_blank">
-                        <i class="bi bi-eye"></i>
-                    </a>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-primary" onclick="contentManager.editPost(${post.id})" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                            <span class="d-none d-sm-inline ms-1">Edit</span>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="contentManager.deletePost(${post.id})" title="Delete">
+                            <i class="bi bi-trash"></i>
+                            <span class="d-none d-sm-inline ms-1">Delete</span>
+                        </button>
+                        <a href="/post/${post.id}" class="btn btn-sm btn-info" target="_blank" title="View">
+                            <i class="bi bi-eye"></i>
+                            <span class="d-none d-sm-inline ms-1">View</span>
+                        </a>
+                    </div>
                 </td>
             `;
             tbody.appendChild(row);
@@ -229,21 +242,26 @@ class ContentManager {
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${comment.id}"></td>
                 <td>${this.truncate(comment.content, 80)}</td>
-                <td>${comment.username}</td>
-                <td>${this.truncate(comment.post_title, 30)}</td>
-                <td>${comment.parent_id ? 'Reply' : 'Root'}</td>
-                <td>${comment.upvote_count}</td>
-                <td>${createdDate}</td>
+                <td class="d-none d-sm-table-cell">${comment.username}</td>
+                <td class="d-none d-md-table-cell">${this.truncate(comment.post_title, 30)}</td>
+                <td class="d-none d-lg-table-cell">${comment.parent_id ? 'Reply' : 'Root'}</td>
+                <td class="d-none d-sm-table-cell">${comment.upvote_count}</td>
+                <td class="d-none d-lg-table-cell">${createdDate}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="contentManager.editComment(${comment.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="contentManager.deleteComment(${comment.id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                    <a href="/post/${comment.post_id}" class="btn btn-sm btn-info" target="_blank">
-                        <i class="bi bi-eye"></i>
-                    </a>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-primary" onclick="contentManager.editComment(${comment.id})" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                            <span class="d-none d-sm-inline ms-1">Edit</span>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="contentManager.deleteComment(${comment.id})" title="Delete">
+                            <i class="bi bi-trash"></i>
+                            <span class="d-none d-sm-inline ms-1">Delete</span>
+                        </button>
+                        <a href="/post/${comment.post_id}" class="btn btn-sm btn-info" target="_blank" title="View Post">
+                            <i class="bi bi-eye"></i>
+                            <span class="d-none d-sm-inline ms-1">View</span>
+                        </a>
+                    </div>
                 </td>
             `;
             tbody.appendChild(row);
