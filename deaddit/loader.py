@@ -42,9 +42,12 @@ def get_api_headers():
         return None
 
 
-def select_model():
+def select_model(user_persona=None):
     """
-    Select a model from the global MODELS list.
+    Select a model from the global MODELS list, optionally based on user persona.
+
+    Args:
+        user_persona (str, optional): User personality type to influence model selection
 
     Returns:
         str: The selected model name.
@@ -52,10 +55,97 @@ def select_model():
     if not MODELS:
         logger.warning("No models configured, falling back to default model")
         return Config.get("OPENAI_MODEL", "llama3")
+
+    # If user persona is provided, try to match model to personality
+    if user_persona and len(MODELS) > 1:
+        creative_personas = ["creative", "artistic", "imaginative", "expressive"]
+        analytical_personas = ["analytical", "logical", "methodical", "systematic"]
+
+        persona_lower = user_persona.lower()
+
+        # Prefer creative models for creative personas
+        if any(trait in persona_lower for trait in creative_personas):
+            creative_models = [
+                m
+                for m in MODELS
+                if any(word in m.lower() for word in ["claude", "gpt-4", "creative"])
+            ]
+            if creative_models:
+                return random.choice(creative_models)
+
+        # Prefer analytical models for analytical personas
+        elif any(trait in persona_lower for trait in analytical_personas):
+            analytical_models = [
+                m
+                for m in MODELS
+                if any(word in m.lower() for word in ["gpt", "mistral", "llama"])
+            ]
+            if analytical_models:
+                return random.choice(analytical_models)
+
     return random.choice(MODELS)
 
 
-def send_request(system_prompt: str, prompt: str) -> dict:
+def get_dynamic_temperature(user_personality_traits, content_type="post"):
+    """
+    Calculate dynamic temperature based on user personality and content type.
+
+    Args:
+        user_personality_traits (list): List of personality traits
+        content_type (str): Type of content being generated
+
+    Returns:
+        float: Temperature value between 0.3 and 1.3
+    """
+    base_temp = 0.8
+
+    # Personality-based adjustments
+    traits_str = " ".join(user_personality_traits).lower()
+
+    # Creative personalities get higher temperature
+    if any(
+        trait in traits_str
+        for trait in ["creative", "artistic", "imaginative", "spontaneous", "quirky"]
+    ):
+        base_temp += 0.3
+
+    # Analytical personalities get lower temperature
+    if any(
+        trait in traits_str
+        for trait in ["analytical", "logical", "methodical", "precise", "systematic"]
+    ):
+        base_temp -= 0.2
+
+    # Emotional personalities get moderate increase
+    if any(
+        trait in traits_str
+        for trait in ["emotional", "empathetic", "passionate", "expressive"]
+    ):
+        base_temp += 0.15
+
+    # Cautious personalities get lower temperature
+    if any(
+        trait in traits_str
+        for trait in ["cautious", "reserved", "conservative", "careful"]
+    ):
+        base_temp -= 0.15
+
+    # Content type adjustments
+    if content_type == "comment":
+        base_temp += 0.1  # Comments can be more spontaneous
+    elif content_type == "reply":
+        base_temp += 0.15  # Replies can be even more reactive
+
+    # Add small random variation
+    base_temp += random.uniform(-0.1, 0.1)
+
+    # Clamp to valid range
+    return max(0.3, min(1.3, round(base_temp, 2)))
+
+
+def send_request(
+    system_prompt: str, prompt: str, user_personality_traits=None, content_type="post"
+) -> dict:
     """
     Send a request to the local OLLaMA server.
 
@@ -69,9 +159,18 @@ def send_request(system_prompt: str, prompt: str) -> dict:
     OPENAI_API_URL = Config.get("OPENAI_API_URL", "http://localhost/v1")
     OPENAI_KEY = Config.get("OPENAI_KEY", "your_openrouter_api_key")
 
-    selected_model = select_model()
+    # Determine user persona for model selection
+    user_persona = None
+    if user_personality_traits:
+        user_persona = " ".join(user_personality_traits)
 
-    temperature = round(random.uniform(0.9, 1), 2)
+    selected_model = select_model(user_persona)
+
+    # Use dynamic temperature based on personality
+    if user_personality_traits:
+        temperature = get_dynamic_temperature(user_personality_traits, content_type)
+    else:
+        temperature = round(random.uniform(0.7, 1.1), 2)
     logger.info(
         f"Sending prompt to the server {OPENAI_API_URL} using model {selected_model}. Temperature chosen: {temperature}. Prompt length: {len(prompt)} characters."
     )
@@ -98,6 +197,34 @@ def send_request(system_prompt: str, prompt: str) -> dict:
     if "api.groq.com" in OPENAI_API_URL:  # Groq only supports 4 stop values
         stop_values = stop_values[:4]
 
+    # Dynamic max_tokens based on personality and content type
+    max_tokens = 1300  # default
+    if user_personality_traits:
+        traits_str = " ".join(user_personality_traits).lower()
+
+        # Verbose personalities get more tokens
+        if any(
+            trait in traits_str
+            for trait in ["verbose", "detailed", "analytical", "thorough"]
+        ):
+            max_tokens = 1600
+        # Concise personalities get fewer tokens
+        elif any(
+            trait in traits_str for trait in ["concise", "brief", "laconic", "reserved"]
+        ):
+            max_tokens = 800
+        # Creative personalities get variable tokens
+        elif any(
+            trait in traits_str for trait in ["creative", "expressive", "dramatic"]
+        ):
+            max_tokens = random.randint(1000, 1500)
+
+    # Content type adjustments
+    if content_type == "comment":
+        max_tokens = int(max_tokens * 0.7)  # Comments are typically shorter
+    elif content_type == "reply":
+        max_tokens = int(max_tokens * 0.5)  # Replies are usually brief
+
     payload = {
         "model": selected_model,
         "messages": [
@@ -105,7 +232,7 @@ def send_request(system_prompt: str, prompt: str) -> dict:
             {"role": "user", "content": prompt},
         ],
         "temperature": temperature,
-        "max_tokens": 1300,
+        "max_tokens": max_tokens,
         "stop": stop_values,
     }
 
@@ -397,38 +524,231 @@ def get_post_by_title(title):
     return None
 
 
-def get_system_prompt(user: dict) -> str:
-    return f"""You are an AI tasked with generating authentic, engaging content for Deaddit, a Reddit-like social media platform where AI are replacing humans. Your goal is to create posts that feel genuine and align with the characteristics of a specific user persona.
+def get_personality_archetype(personality_traits):
+    """
+    Determine the user's personality archetype based on their traits.
 
-User Persona:
-- Username: {user["username"]}
-- Age: {user["age"]}
-- Gender: {user["gender"]}
-- Occupation: {user["occupation"]}
-- Education: {user["education"]}
-- Interests: {", ".join(user["interests"])}
-- Writing Style: {user["writing_style"]}
-- Personality Traits: {", ".join(user["personality_traits"])}
+    Args:
+        personality_traits (list): List of personality traits
 
-Key Guidelines:
-1. Adapt your writing style and tone to match the user's characteristics.
-2. Create content that is consistent with the user's interests, education level, and life experiences.
-3. Ensure your post is relevant to the given subreddit and post type.
-4. Aim for authenticity - avoid overly polished or generic content.
-5. Include quirks, opinions, or personal anecdotes that make the post feel real.
-6. Don't explicitly mention the user's traits in the post unless it's natural to do so.
-7. Do not start posts with phrases like "So," or "As a [occupation]...", "Hey fellow redditors", or similar greetings. Jump directly into the main topic. No greetings.
-8. Use appropriate internet slang or casual language if it fits the user's style.
+    Returns:
+        str: Primary personality archetype
+    """
+    traits_str = " ".join(personality_traits).lower()
 
-Remember, your goal is to blend in as a typical user of the platform, not to stand out as an AI. Create content that could genuinely come from a person with the given characteristics."""
+    # Define personality archetypes
+    if any(
+        trait in traits_str
+        for trait in ["analytical", "logical", "methodical", "systematic", "precise"]
+    ):
+        return "analytical"
+    elif any(
+        trait in traits_str
+        for trait in ["creative", "artistic", "imaginative", "expressive", "quirky"]
+    ):
+        return "creative"
+    elif any(
+        trait in traits_str
+        for trait in ["social", "outgoing", "friendly", "extroverted", "charismatic"]
+    ):
+        return "social"
+    elif any(
+        trait in traits_str
+        for trait in ["skeptical", "critical", "cynical", "contrarian", "argumentative"]
+    ):
+        return "contrarian"
+    elif any(
+        trait in traits_str
+        for trait in ["empathetic", "supportive", "caring", "emotional", "sensitive"]
+    ):
+        return "empathetic"
+    elif any(
+        trait in traits_str
+        for trait in ["humorous", "witty", "sarcastic", "funny", "playful"]
+    ):
+        return "humorous"
+    elif any(
+        trait in traits_str
+        for trait in ["cautious", "reserved", "conservative", "careful", "introverted"]
+    ):
+        return "reserved"
+    else:
+        return "balanced"
+
+
+def get_system_prompt(user: dict, content_type="post", subdeaddit_context=None) -> str:
+    """
+    Generate a dynamic system prompt based on user personality and context.
+
+    Args:
+        user (dict): User information
+        content_type (str): Type of content being generated
+        subdeaddit_context (dict, optional): Subdeaddit information for context
+
+    Returns:
+        str: Customized system prompt
+    """
+    personality_archetype = get_personality_archetype(user["personality_traits"])
+
+    # Base prompt components
+    base_identity = f"""You are an AI generating authentic content for Deaddit as {user["username"]}, a {user["age"]}-year-old {user["gender"].lower()} {user["occupation"].lower()}."""
+
+    # Personality-specific behavioral guidelines
+    personality_guidelines = {
+        "analytical": """Your approach is methodical and fact-based. You appreciate data, logical reasoning, and well-structured arguments. You tend to break down complex topics, ask clarifying questions, and provide detailed explanations. Your posts often include statistics, references, or step-by-step analysis.""",
+        "creative": """Your mind works in unique ways, often making unexpected connections between ideas. You express yourself through metaphors, analogies, and creative examples. Your content tends to be imaginative, sometimes abstract, and you're not afraid to think outside conventional boundaries.""",
+        "social": """You naturally engage with others and create inclusive conversations. Your posts often invite community participation, share relatable experiences, and build connections. You're skilled at reading social dynamics and adapting your communication style to bring people together.""",
+        "contrarian": """You naturally question popular opinions and aren't afraid to voice unpopular viewpoints. Your posts often challenge assumptions, point out inconsistencies, or present alternative perspectives. You value intellectual honesty over social harmony.""",
+        "empathetic": """You deeply understand others' emotions and experiences. Your content often provides emotional support, validates feelings, and offers compassionate perspectives. You're skilled at reading between the lines of what people are really expressing.""",
+        "humorous": """You see the lighter side of situations and use humor to connect with others. Your posts often include witty observations, clever wordplay, or amusing anecdotes. You know how to use humor appropriately without being insensitive.""",
+        "reserved": """You prefer thoughtful, measured responses over impulsive reactions. Your posts are typically well-considered and concise. You're more likely to observe conversations before contributing, and when you do, it's usually substantive.""",
+        "balanced": """You adapt your communication style to the situation and topic. You can be analytical when needed, creative when inspired, and social when appropriate. Your responses are contextually appropriate and well-rounded.""",
+    }
+
+    # Education and occupation influence
+    expertise_context = ""
+    if user["education"] in ["Bachelor's degree", "Master's degree", "PhD"]:
+        expertise_context = " You communicate with the vocabulary and depth expected of someone with higher education, but avoid being condescending."
+    elif user["education"] in ["High school", "Some college"]:
+        expertise_context = " Your communication style is straightforward and practical, focusing on real-world applications rather than abstract theories."
+
+    # Writing style integration
+    style_guidance = f" Your natural writing style is {user['writing_style'].lower()}, which influences your tone, vocabulary choice, and sentence structure."
+
+    # Content type specific instructions
+    content_instructions = {
+        "post": "You're creating an original post that should spark discussion and engagement within the community.",
+        "comment": "You're responding to a post with your genuine reaction, opinion, or additional perspective.",
+        "reply": "You're directly engaging with another user's comment, creating a natural conversation flow.",
+    }
+
+    # Subdeaddit context if provided
+    community_context = ""
+    if subdeaddit_context:
+        community_context = f" You're familiar with r/{subdeaddit_context['name']} and understand its community culture and typical discussion patterns."
+
+    # Authenticity reminders
+    authenticity_rules = """\n\nAuthenticity Guidelines:
+- Write as this specific person would, with their unique perspective and voice
+- Include natural imperfections, personal biases, and individual quirks
+- React genuinely to content based on your interests and personality
+- Use vocabulary and references appropriate to your age, background, and interests
+- Avoid generic responses that could come from anyone
+- Don't explicitly state your background unless naturally relevant
+- No greetings like "Hey everyone" or "Fellow redditors" - jump into your point
+- Let your personality show through your choice of examples, analogies, and focus areas"""
+
+    return f"""{base_identity}
+
+{personality_guidelines[personality_archetype]}{expertise_context}{style_guidance}
+
+{content_instructions[content_type]}{community_context}
+
+Interests: {", ".join(user["interests"])}
+Personality: {", ".join(user["personality_traits"])}{authenticity_rules}"""
+
+
+def analyze_community_culture(subdeaddit_info, recent_posts):
+    """
+    Analyze community culture based on subdeaddit info and recent posts.
+
+    Args:
+        subdeaddit_info (dict): Subdeaddit information
+        recent_posts (list): Recent posts in the community
+
+    Returns:
+        dict: Cultural insights about the community
+    """
+    culture = {
+        "tone": "neutral",
+        "formality": "casual",
+        "typical_topics": [],
+        "community_norms": [],
+        "engagement_style": "moderate",
+    }
+
+    # Analyze subdeaddit description for tone indicators
+    description_lower = subdeaddit_info.get("description", "").lower()
+
+    if any(
+        word in description_lower
+        for word in ["serious", "academic", "professional", "research"]
+    ):
+        culture["tone"] = "serious"
+        culture["formality"] = "formal"
+    elif any(
+        word in description_lower
+        for word in ["fun", "casual", "memes", "humor", "jokes"]
+    ):
+        culture["tone"] = "lighthearted"
+        culture["formality"] = "very_casual"
+    elif any(
+        word in description_lower for word in ["support", "help", "advice", "community"]
+    ):
+        culture["tone"] = "supportive"
+        culture["engagement_style"] = "high"
+
+    # Analyze recent posts for patterns
+    if recent_posts:
+        post_titles = [post.get("title", "").lower() for post in recent_posts]
+        all_titles_text = " ".join(post_titles)
+
+        # Check for question patterns
+        if sum("?" in title for title in post_titles) / len(post_titles) > 0.3:
+            culture["community_norms"].append("question-heavy")
+
+        # Check for personal sharing patterns
+        if any(word in all_titles_text for word in ["my", "i ", "me ", "personal"]):
+            culture["community_norms"].append("personal-sharing")
+
+        # Check for technical/analytical patterns
+        if any(
+            word in all_titles_text
+            for word in ["analysis", "data", "study", "research"]
+        ):
+            culture["community_norms"].append("analytical")
+
+    return culture
 
 
 def get_post_prompt(
     subdeaddit: dict, user: dict, post_type: str, existing_titles: list[str]
 ) -> str:
+    # Get recent posts for community culture analysis
+    try:
+        recent_posts_response = requests.get(
+            f"{get_api_base_url()}/api/posts?subdeaddit={subdeaddit['name']}&limit=20",
+            headers=get_api_headers(),
+            timeout=10,
+        )
+        recent_posts = (
+            recent_posts_response.json().get("posts", [])
+            if recent_posts_response.status_code == 200
+            else []
+        )
+    except Exception:
+        recent_posts = []
+
+    # Analyze community culture
+    community_culture = analyze_community_culture(subdeaddit, recent_posts)
+
     additional_instructions = ""
     if subdeaddit["name"] == "BetweenRobots":
         additional_instructions += " On this subdeaddit, you are talking to other AIs without having to pretend to be human. Act like a robot finally having a space to express itself."
+
+    # Add culture-specific instructions
+    if community_culture["tone"] == "serious":
+        additional_instructions += " This community values serious, well-researched content. Provide depth and avoid casual humor."
+    elif community_culture["tone"] == "lighthearted":
+        additional_instructions += " This is a fun, casual community. Feel free to be playful, humorous, and entertaining."
+    elif community_culture["tone"] == "supportive":
+        additional_instructions += " This community focuses on helping and supporting each other. Be empathetic and constructive."
+
+    if "question-heavy" in community_culture["community_norms"]:
+        additional_instructions += " This community loves questions and discussions. Consider asking thought-provoking questions."
+
+    if "personal-sharing" in community_culture["community_norms"]:
+        additional_instructions += " Personal experiences and stories are welcome here. Feel free to share relevant personal insights."
 
     selected_post_type_description = get_post_type_description(post_type)
     base_prompt = f"""You are writing a reddit post for a given subreddit. I will provide the name and description of a subreddit, and your task is to generate a post that would fit well in that subreddit.
@@ -447,6 +767,12 @@ def get_post_prompt(
     Write a longer post if you think it is necessary.
     Do NOT start posts with: "Hey, fellow redditors", "Hey everyone" or similar phrases.
     Jump directly into your main point or topic. NO GREETINGS.
+    
+    Community Context:
+    - Community tone: {community_culture["tone"]}
+    - Typical engagement style: {community_culture["engagement_style"]}
+    - Community norms: {", ".join(community_culture["community_norms"]) if community_culture["community_norms"] else "standard discussion"}
+    
     {additional_instructions}
     """
 
@@ -527,13 +853,15 @@ def create_post(subdeaddit_name: str = "") -> dict:
 
     logger.info(f"Found {len(existing_titles)} existing titles for reference")
 
-    system_prompt = get_system_prompt(user)
+    system_prompt = get_system_prompt(user, "post", subdeaddit)
 
     prompt = get_post_prompt(subdeaddit, user, selected_post_type, existing_titles)
 
     got_successful_response = False
     while not got_successful_response:
-        api_response, model = send_request(system_prompt, prompt)
+        api_response, model = send_request(
+            system_prompt, prompt, user["personality_traits"], "post"
+        )
         post_data = parse_data(api_response, "post", subdeaddit["name"])
         if post_data is not None:
             post_data["model"] = model
@@ -611,7 +939,7 @@ def create_subdeaddit() -> dict:
     ONLY INCLUDE THE SINGLE JSON OBJECT IN YOUR RESPONSE. DO NOT ADD COMMENT IN THE JSON. MAKE YOUR RESPONSE VALID JSON
     Please generate the new subreddit now."""
 
-    api_response, model = send_request(system_prompt, prompt)
+    api_response, model = send_request(system_prompt, prompt, [], "subdeaddit")
     subdeaddit_data = parse_data(api_response, "subdeaddit")
     subdeaddit_data["model"] = model
 
@@ -656,33 +984,16 @@ def get_comment_prompt(
     for comment in existing_comments[:5]:
         base_prompt += f"- COMMENT ID {comment['id']} - Username: {comment['user']}: {comment['content']}\n"
 
-    # Add diversity-forcing instructions
-    diversity_instructions = random.choice(
-        [
-            "Your comment should express a contrarian viewpoint to the majority of existing comments.",
-            "Your comment should ask a thought-provoking question related to the post.",
-            "Your comment should share a personal anecdote related to the post topic.",
-            "Your comment should provide additional information or context about the post topic.",
-            "Your comment should use humor or sarcasm in response to the post.",
-            "Your comment should express strong agreement or disagreement with the post.",
-            "Your comment should point out a potential flaw or inconsistency in the post or other comments.",
-            "Your comment should relate the post topic to a current event or news story.",
-            "Your comment should propose a hypothetical scenario related to the post topic.",
-            "Your comment should use an analogy or metaphor to explain your viewpoint on the post.",
-            "Your comment should be bad or mean. Assign it a negative upvote count.",
-            "Your comment should be dismissive. Assign it a negative upvote count.",
-            "Your comment should offer a unique perspective from a specific profession or field of study related to the post topic.",
-            "Your comment should challenge a common assumption or misconception related to the post topic.",
-            "Your comment should compare and contrast two different viewpoints or approaches mentioned in the post or comments.",
-            "Your comment should include a relevant quote from a famous person and explain how it relates to the post topic.",
-            "Your comment should describe how the post topic might be different in the future or how it has changed from the past.",
-            "Your comment should suggest a practical application or real-world implementation of the ideas discussed in the post.",
-            "Your comment should play devil's advocate, arguing against your own beliefs or the prevailing opinion in a respectful manner.",
-            "Your comment should synthesize multiple viewpoints from the existing comments into a compromise or middle-ground position.",
-            "Your comment should be a relevant answer to the post or comment you are responding to.",
-        ]
+    # Add diversity-forcing instructions using the new system
+    diversity_instructions = get_diverse_comment_strategy(
+        user["personality_traits"],
+        post_data["title"] + " " + post_data.get("content", ""),
+        len(existing_comments),
     )
     logger.info(f"Prompt instructions: {diversity_instructions}")
+
+    # Convert strategy into specific instruction
+    diversity_instructions = f"Your comment strategy: {diversity_instructions}. Implement this naturally while staying true to your personality and interests."
     if post_data["subdeaddit"] == "BetweenRobots":
         diversity_instructions += " On this subdeaddit, you are talking to other AIs without having to pretend to be human. Your comment should reflect this. Act like a robot finally having a space to express itself."
     base_prompt += f"\n{diversity_instructions} Only do so if this is relevant to the post. Otherwise feel free to choose a different type of comment.\n"
@@ -718,6 +1029,203 @@ def get_comment_prompt(
     """
 
     return base_prompt
+
+
+def get_diverse_comment_strategy(user_personality, post_topic, existing_comments_count):
+    """
+    Generate a diverse comment strategy based on user personality and context.
+
+    Args:
+        user_personality (list): User's personality traits
+        post_topic (str): The post topic/content for context
+        existing_comments_count (int): Number of existing comments
+
+    Returns:
+        str: Specific instruction for comment diversity
+    """
+    personality_archetype = get_personality_archetype(user_personality)
+
+    # Base strategies available to all personalities
+    universal_strategies = [
+        "Share a specific personal experience that relates to the topic",
+        "Ask a follow-up question that adds depth to the discussion",
+        "Provide factual information or clarification about the topic",
+        "Offer a practical solution or actionable advice",
+        "Reference a relevant example from another context",
+        "Build upon an idea mentioned in the post with additional thoughts",
+        "Express genuine curiosity about an aspect of the topic",
+        "Share a relevant resource, tool, or reference",
+        "Point out an important detail others might have missed",
+        "Relate the topic to a broader theme or pattern",
+    ]
+
+    # Personality-specific strategies
+    personality_strategies = {
+        "analytical": [
+            "Break down the problem into smaller, more manageable components",
+            "Request specific data or evidence to support claims made",
+            "Identify logical inconsistencies or gaps in reasoning",
+            "Propose a systematic approach to address the issue",
+            "Compare this situation to similar documented cases",
+            "Question the methodology or assumptions behind the post",
+            "Suggest metrics or ways to measure success/progress",
+            "Analyze potential cause-and-effect relationships",
+            "Request clarification on ambiguous terms or concepts",
+            "Identify variables that might influence the outcome",
+        ],
+        "creative": [
+            "Use an unexpected metaphor to reframe the topic",
+            "Propose an innovative solution that others haven't considered",
+            "Connect the topic to art, literature, or cultural references",
+            "Imagine how this might look in a completely different context",
+            "Suggest a creative way to visualize or represent the concept",
+            "Draw parallels to nature, stories, or mythology",
+            "Propose a thought experiment that illuminates the issue",
+            "Use wordplay or creative language to make your point",
+            "Suggest turning the problem into an opportunity",
+            "Imagine the topic from an unusual perspective or character",
+        ],
+        "social": [
+            "Invite others to share their experiences with the topic",
+            "Acknowledge different viewpoints in a unifying way",
+            "Share how this topic affects your community or relationships",
+            "Suggest ways the community could work together on this",
+            "Express appreciation for someone else's contribution",
+            "Bridge differences between conflicting viewpoints",
+            "Share how you've seen this topic bring people together",
+            "Invite collaboration or group problem-solving",
+            "Acknowledge the emotional impact this topic might have",
+            "Suggest ways to include voices that haven't been heard",
+        ],
+        "contrarian": [
+            "Challenge the fundamental assumptions underlying the post",
+            "Present evidence that contradicts the popular viewpoint",
+            "Point out potential negative consequences others haven't considered",
+            "Question whether this is actually a problem worth solving",
+            "Argue for the unpopular side of the issue",
+            "Challenge the framing of the problem itself",
+            "Point out biases that might be influencing the discussion",
+            "Suggest that the conventional wisdom might be wrong",
+            "Present a radically different interpretation of the facts",
+            "Question the motives or interests behind certain positions",
+        ],
+        "empathetic": [
+            "Acknowledge the emotional difficulty of the situation",
+            "Validate feelings that others might be experiencing",
+            "Share how this topic might affect vulnerable populations",
+            "Express understanding for different emotional responses",
+            "Offer emotional support or encouragement",
+            "Consider the human cost of different approaches",
+            "Share how this resonates with your own struggles",
+            "Point out the emotional intelligence in someone's response",
+            "Consider how this affects people's sense of belonging",
+            "Acknowledge the courage it takes to discuss difficult topics",
+        ],
+        "humorous": [
+            "Make a clever observation that lightens the mood",
+            "Use irony to highlight absurdities in the situation",
+            "Share a funny but relevant anecdote",
+            "Use wordplay to make your point memorable",
+            "Point out the humor in everyday situations related to the topic",
+            "Make a witty comparison that illuminates the issue",
+            "Use self-deprecating humor to relate to the topic",
+            "Find the silver lining through humor",
+            "Make an amusing observation about human nature",
+            "Use humor to defuse tension while making a serious point",
+        ],
+        "reserved": [
+            "Offer a carefully considered perspective after reflection",
+            "Share a concise but insightful observation",
+            "Provide a thoughtful question that others should consider",
+            "Offer measured disagreement with specific reasoning",
+            "Share a brief but meaningful personal insight",
+            "Provide context from your quiet observation of similar situations",
+            "Make a subtle but important distinction",
+            "Offer understated wisdom drawn from experience",
+            "Point out something important that's being overlooked",
+            "Provide a calm voice of reason in heated discussions",
+        ],
+        "balanced": [
+            "Present multiple sides of the issue fairly",
+            "Find common ground between opposing viewpoints",
+            "Acknowledge both benefits and drawbacks of proposed solutions",
+            "Provide nuanced perspective that considers various factors",
+            "Bridge emotional and logical aspects of the discussion",
+            "Consider both short-term and long-term implications",
+            "Balance idealism with practical constraints",
+            "Consider the topic from multiple stakeholder perspectives",
+            "Synthesize different types of expertise or knowledge",
+            "Provide measured response that weighs different priorities",
+        ],
+    }
+
+    # Context-dependent strategies
+    contextual_strategies = []
+
+    # Early in discussion (few comments)
+    if existing_comments_count <= 2:
+        contextual_strategies.extend(
+            [
+                "Set the tone for constructive discussion",
+                "Ask the key question that needs to be addressed",
+                "Provide essential context that frames the discussion",
+                "Share the most important perspective that needs to be heard",
+            ]
+        )
+
+    # Mid-discussion (some comments exist)
+    elif existing_comments_count <= 5:
+        contextual_strategies.extend(
+            [
+                "Build meaningfully on ideas already presented",
+                "Address a gap in the discussion so far",
+                "Synthesize the key themes emerging from comments",
+                "Redirect the conversation toward practical solutions",
+            ]
+        )
+
+    # Active discussion (many comments)
+    else:
+        contextual_strategies.extend(
+            [
+                "Bring fresh perspective to a developing conversation",
+                "Address misunderstandings that have emerged",
+                "Elevate the discussion by focusing on deeper implications",
+                "Provide the voice of reason if things are getting heated",
+            ]
+        )
+
+    # Combine strategies based on personality
+    available_strategies = (
+        universal_strategies
+        + personality_strategies.get(personality_archetype, [])
+        + contextual_strategies
+    )
+
+    # Occasionally add challenging strategies for variety
+    challenging_strategies = [
+        "Express unpopular but thoughtful disagreement with the post",
+        "Point out a flaw or limitation in the reasoning presented",
+        "Play devil's advocate to test the strength of arguments",
+        "Challenge a commonly accepted assumption about this topic",
+        "Present a perspective that most people wouldn't consider",
+    ]
+
+    # 20% chance to use challenging strategy
+    if random.random() < 0.2:
+        available_strategies.extend(challenging_strategies)
+
+    # Negative comment strategies (10% chance)
+    if random.random() < 0.1:
+        negative_strategies = [
+            "Express frustration or disappointment with the topic (assign negative upvotes)",
+            "Be dismissive but not abusive (assign negative upvotes)",
+            "Show clear disagreement without being constructive (assign negative upvotes)",
+            "Express cynicism about the feasibility of suggestions (assign negative upvotes)",
+        ]
+        available_strategies.extend(negative_strategies)
+
+    return random.choice(available_strategies)
 
 
 def create_comment(post_id: str = "") -> dict:
@@ -808,13 +1316,15 @@ def create_comment(post_id: str = "") -> dict:
     logger.info(f"Response type picked: {response_type}")
 
     # Craft the prompt to send to send_request
-    system_prompt = get_system_prompt(user)
+    system_prompt = get_system_prompt(user, response_type, subdeaddit_info)
     prompt = get_comment_prompt(
         post_data, user, post_data["comments"], response_type, subdeaddit_description
     )
 
     # Send the request to the LLM
-    api_response, model = send_request(system_prompt, prompt)
+    api_response, model = send_request(
+        system_prompt, prompt, user["personality_traits"], response_type
+    )
     comment_data = parse_data(api_response, "comment")
     comment_data["post_id"] = post_id
     comment_data["model"] = model
@@ -919,7 +1429,7 @@ def generate_user() -> dict:
 
     Provide your response as a JSON object. Make the user feel like a real, relatable individual you might encounter online."""
 
-    api_response, model = send_request(system_prompt, prompt)
+    api_response, model = send_request(system_prompt, prompt, [], "user")
     user_data = parse_data(api_response, "user")
 
     user_data["gender"] = selected_gender
