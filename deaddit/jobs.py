@@ -23,9 +23,9 @@ from deaddit.models import Job, JobStatus, JobType
 # APScheduler configuration
 jobstores = {"default": MemoryJobStore()}
 executors = {
-    "default": ThreadPoolExecutor(max_workers=5),
-    "high_priority": ThreadPoolExecutor(max_workers=3),
-    "low_priority": ThreadPoolExecutor(max_workers=2),
+    "default": ThreadPoolExecutor(max_workers=1),
+    "high_priority": ThreadPoolExecutor(max_workers=1),
+    "low_priority": ThreadPoolExecutor(max_workers=1),
 }
 job_defaults = {
     "coalesce": False,

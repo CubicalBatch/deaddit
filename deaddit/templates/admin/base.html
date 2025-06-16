@@ -214,15 +214,11 @@
             
             // Join job updates room
             socket.emit('join_job_updates', {});
-            
-            // Show connection indicator
-            showConnectionStatus('Connected', 'success');
         });
         
         socket.on('disconnect', function() {
             console.log('Disconnected from admin WebSocket');
             isConnected = false;
-            showConnectionStatus('Disconnected', 'danger');
         });
         
         socket.on('job_update', function(data) {
@@ -230,35 +226,6 @@
             updateJobUI(data);
         });
         
-        function showConnectionStatus(message, type) {
-            // Create or update connection status indicator
-            let indicator = document.getElementById('ws-connection-status');
-            if (!indicator) {
-                indicator = document.createElement('div');
-                indicator.id = 'ws-connection-status';
-                indicator.className = 'position-fixed top-0 end-0 m-3';
-                indicator.style.zIndex = '9999';
-                document.body.appendChild(indicator);
-            }
-            
-            indicator.innerHTML = `
-                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                    <i class="bi bi-wifi"></i> ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            `;
-            
-            // Auto-hide success messages
-            if (type === 'success') {
-                setTimeout(() => {
-                    const alert = indicator.querySelector('.alert');
-                    if (alert) {
-                        const bsAlert = new bootstrap.Alert(alert);
-                        bsAlert.close();
-                    }
-                }, 3000);
-            }
-        }
         
         function updateJobUI(jobData) {
             const jobId = jobData.job_id;

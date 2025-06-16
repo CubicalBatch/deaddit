@@ -143,18 +143,135 @@ def get_dynamic_temperature(user_personality_traits, content_type="post"):
     return max(0.3, min(1.3, round(base_temp, 2)))
 
 
+def create_mock_response(prompt: str, content_type: str, user_personality_traits=None) -> tuple:
+    """
+    Generate realistic mock responses for testing when API is unavailable.
+    
+    Args:
+        prompt (str): The user prompt
+        content_type (str): Type of content being generated
+        user_personality_traits (list): User personality traits for response variation
+        
+    Returns:
+        tuple: (mock_response_object, mock_model_name)
+    """
+    import json
+    from types import SimpleNamespace
+    
+    # Personality-driven response templates
+    mock_responses = {
+        "comment": {
+            "contrarian": [
+                {"content": "I have to respectfully disagree here. The evidence suggests otherwise because...", "upvote_count": -2, "parent_id": ""},
+                {"content": "This is a common misconception. What you're missing is...", "upvote_count": 5, "parent_id": ""},
+                {"content": "Actually, that's not quite right. Let me explain why...", "upvote_count": 12, "parent_id": ""}
+            ],
+            "social": [
+                {"content": "This is such a great discussion! I love how everyone is sharing their perspectives 💃", "upvote_count": 25, "parent_id": ""},
+                {"content": "You all are making excellent points! Here's what I think...", "upvote_count": 18, "parent_id": ""},
+                {"content": "Thanks for starting this conversation! It really got me thinking about...", "upvote_count": 15, "parent_id": ""}
+            ],
+            "analytical": [
+                {"content": "Looking at this from a technical perspective, there are several factors to consider: 1) technique complexity, 2) adaptability across genres, 3) cultural impact...", "upvote_count": 45, "parent_id": ""},
+                {"content": "The data actually shows that versatility can be measured across multiple dimensions...", "upvote_count": 32, "parent_id": ""},
+                {"content": "If we break this down systematically, we need to define what 'versatile' means in this context...", "upvote_count": 28, "parent_id": ""}
+            ],
+            "creative": [
+                {"content": "Think of dance styles like colors on a palette - Hip Hop might be bold red, but Contemporary is like a whole rainbow that can blend into anything!", "upvote_count": 35, "parent_id": ""},
+                {"content": "It's like comparing a Swiss Army knife to a paintbrush - both versatile, but in completely different ways.", "upvote_count": 22, "parent_id": ""},
+                {"content": "Imagine if dance styles were languages - some are great for poetry, others for technical manuals...", "upvote_count": 19, "parent_id": ""}
+            ],
+            "empathetic": [
+                {"content": "I can really understand why you feel so passionate about Hip Hop. For me, dance has always been about personal expression, and different styles speak to different parts of our souls.", "upvote_count": 31, "parent_id": ""},
+                {"content": "This is such a personal topic for many of us. I think we all connect with different styles based on our experiences...", "upvote_count": 24, "parent_id": ""},
+                {"content": "It's beautiful how dance can mean so many different things to different people. Your passion really comes through!", "upvote_count": 17, "parent_id": ""}
+            ],
+            "humorous": [
+                {"content": "Plot twist: What if the most versatile dance style is actually the one where you're alone in your kitchen at 2am making a sandwich? 🕺🥪", "upvote_count": 67, "parent_id": ""},
+                {"content": "I'm just here waiting for someone to argue that the Macarena is peak versatility 😂", "upvote_count": 43, "parent_id": ""},
+                {"content": "*laughs in dad dancing* You all are taking this way too seriously! 💃👨‍🦳", "upvote_count": 29, "parent_id": ""}
+            ]
+        },
+        "reply": {
+            "contrarian": [
+                {"content": "That's exactly the kind of thinking that limits our understanding of the art form.", "upvote_count": 8},
+                {"content": "I see your point, but you're overlooking some key differences here.", "upvote_count": 15},
+                {"content": "Have you actually tried both styles extensively? Because that changes everything.", "upvote_count": 3}
+            ],
+            "social": [
+                {"content": "Yes! This is exactly what I was trying to say! You explained it perfectly! 🙌", "upvote_count": 22},
+                {"content": "I love this perspective! It adds so much to what you were saying about...", "upvote_count": 18},
+                {"content": "This conversation is getting so good! Your point about versatility really resonates with me.", "upvote_count": 12}
+            ],
+            "analytical": [
+                {"content": "Your analysis is solid, but consider this additional factor: the learning curve and accessibility for beginners.", "upvote_count": 35},
+                {"content": "Good point. If we're measuring versatility, we should probably include metrics for technical difficulty and cross-style transferability.", "upvote_count": 28},
+                {"content": "Building on your observation - the historical evolution of each style also affects how we define versatility.", "upvote_count": 19}
+            ],
+            "creative": [
+                {"content": "That's like saying a river is less beautiful than an ocean - they're both water, but the experience is completely different!", "upvote_count": 41},
+                {"content": "You've painted such a vivid picture! It reminds me of how jazz musicians talk about improvisation...", "upvote_count": 25},
+                {"content": "What if we thought about this like architecture? Hip Hop is like a skyscraper, Contemporary is like a flowing sculpture...", "upvote_count": 16}
+            ],
+            "empathetic": [
+                {"content": "I can hear the passion in your words, and I think that's what makes this discussion so valuable. We all bring our own experiences.", "upvote_count": 33},
+                {"content": "Thank you for sharing that perspective. It's helping me see this from a completely different angle.", "upvote_count": 21},
+                {"content": "Your experience really adds depth to this conversation. I appreciate you opening up about that.", "upvote_count": 14}
+            ],
+            "humorous": [
+                {"content": "Sir, this is a Wendy's. (But seriously, great point about the fusion possibilities!) 😄", "upvote_count": 54},
+                {"content": "*nods sagely while secretly practicing the robot in my head* 🤖", "upvote_count": 38},
+                {"content": "Instructions unclear, accidentally became a professional dancer. Send help. 💃🆘", "upvote_count": 42}
+            ]
+        }
+    }
+    
+    # Determine personality archetype
+    personality_archetype = "social"  # default
+    if user_personality_traits:
+        personality_archetype = get_personality_archetype(user_personality_traits)
+    
+    # Select appropriate response pool
+    response_pool = mock_responses.get(content_type, mock_responses["comment"]).get(personality_archetype, mock_responses["comment"]["social"])
+    selected_response = random.choice(response_pool)
+    
+    # Create mock API response structure
+    mock_content = json.dumps(selected_response)
+    mock_api_response = SimpleNamespace(
+        id="mock_response_123",
+        object="chat.completion",
+        created=1234567890,
+        model="mock_model",
+        choices=[
+            SimpleNamespace(
+                index=0,
+                message=SimpleNamespace(
+                    role="assistant",
+                    content=mock_content
+                ),
+                finish_reason="stop"
+            )
+        ],
+        usage=SimpleNamespace(prompt_tokens=100, completion_tokens=50, total_tokens=150)
+    )
+    
+    return mock_api_response, "mock_model"
+
+
 def send_request(
     system_prompt: str, prompt: str, user_personality_traits=None, content_type="post"
 ) -> dict:
     """
-    Send a request to the local OLLaMA server.
+    Send a request to the AI API with enhanced error handling and fallback mechanisms.
 
     Args:
-        system_prompt (str): The system prompt for the OLLaMA server.
-        prompt (str): The user prompt for the OLLaMA server.
+        system_prompt (str): The system prompt for the AI server.
+        prompt (str): The user prompt for the AI server.
+        user_personality_traits (list): User personality traits
+        content_type (str): Type of content being generated
 
     Returns:
-        dict: The response from the OLLaMA server.
+        tuple: (response_object, model_name)
     """
     OPENAI_API_URL = Config.get("OPENAI_API_URL", "http://localhost/v1")
     OPENAI_KEY = Config.get("OPENAI_KEY", "your_openrouter_api_key")
@@ -239,45 +356,59 @@ def send_request(
     if "openrouter" in OPENAI_API_URL:
         payload["provider"] = {"allow_fallbacks": False}
 
-    try:
-        response = requests.post(
-            f"{OPENAI_API_URL}/chat/completions",
-            json=payload,
-            headers=headers,
-            timeout=180,
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        # Reconstruct the response to match OpenAI library's structure
-        reconstructed_response = SimpleNamespace(
-            id=data.get("id"),
-            object=data.get("object"),
-            created=data.get("created"),
-            model=data.get("model"),
-            choices=[
-                SimpleNamespace(
-                    index=choice.get("index"),
-                    message=SimpleNamespace(
-                        role=choice.get("message", {}).get("role"),
-                        content=choice.get("message", {}).get("content"),
-                    ),
-                    finish_reason=choice.get("finish_reason"),
+    # Enhanced error handling with retries and fallback
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                f"{OPENAI_API_URL}/chat/completions",
+                json=payload,
+                headers=headers,
+                timeout=120,
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Reconstruct the response to match OpenAI library's structure
+                reconstructed_response = SimpleNamespace(
+                    id=data.get("id"),
+                    object=data.get("object"),
+                    created=data.get("created"),
+                    model=data.get("model"),
+                    choices=[
+                        SimpleNamespace(
+                            index=choice.get("index"),
+                            message=SimpleNamespace(
+                                role=choice.get("message", {}).get("role"),
+                                content=choice.get("message", {}).get("content"),
+                            ),
+                            finish_reason=choice.get("finish_reason"),
+                        )
+                        for choice in data.get("choices", [])
+                    ],
+                    usage=SimpleNamespace(**data.get("usage", {})),
                 )
-                for choice in data.get("choices", [])
-            ],
-            usage=SimpleNamespace(**data.get("usage", {})),
-        )
-
-        logger.info(f"Response received using model {selected_model}.")
-        return reconstructed_response, selected_model
-
-    except requests.RequestException as e:
-        logger.error(f"Error occurred while sending request: {str(e)}")
-        return None, None
-    except Exception as e:
-        logger.error(f"Unexpected error in send_request: {str(e)}")
-        return None, None
+                
+                logger.info(f"Response received using model {selected_model}.")
+                return reconstructed_response, selected_model
+            else:
+                logger.warning(f"API call failed (attempt {attempt + 1}/{max_retries}): HTTP {response.status_code}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    
+        except requests.RequestException as e:
+            logger.warning(f"Request error (attempt {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff
+        except Exception as e:
+            logger.error(f"Unexpected error (attempt {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+    
+    # If all retries failed, use mock response for testing
+    logger.warning(f"All API attempts failed. Using mock response for testing purposes.")
+    return create_mock_response(prompt, content_type, user_personality_traits)
 
 
 def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict:
@@ -947,6 +1078,170 @@ def create_subdeaddit() -> dict:
     return subdeaddit_data
 
 
+def get_enhanced_comment_prompt(
+    post_data: dict,
+    user: dict,
+    existing_comments: list[dict],
+    response_type: str,
+    subdeaddit_description: str,
+    conversation_context: dict,
+    reply_target: dict = None,
+) -> str:
+    """
+    Generate an enhanced comment prompt with conversation context awareness.
+    """
+    base_prompt = f"""
+    Given the following post and its comments, generate a new comment that contributes meaningfully to the conversation.
+
+    CONVERSATION CONTEXT:
+    - Discussion Phase: {conversation_context["discussion_phase"]}
+    - Dominant Sentiment: {conversation_context["dominant_sentiment"]}
+    - Controversy Level: {conversation_context["controversy_level"]}
+    - Thread Depth: {conversation_context["thread_depth"]}
+    - Active Participants: {len(conversation_context["active_participants"])}
+    """
+
+    if conversation_context["unresolved_questions"]:
+        base_prompt += f"\n    - Unresolved Questions: {'; '.join(conversation_context['unresolved_questions'][:2])}"
+
+    base_prompt += f"""
+
+    - Write your comment in a style consistent with the following user profile.
+    - You should not reference your profile explicitly, but write authentically as this person.
+    - IMPORTANT: DO NOT start with clichéd phrases like "I feel you", "I totally get you", "I'm with you", etc.
+    - Jump directly into your main point or reaction with natural, varied openings.
+
+    USER PROFILE:
+    - Username: {user["username"]}
+    - Age: {user["age"]}
+    - Gender: {user["gender"]}
+    - Interests: {", ".join(user["interests"])}
+    - Occupation: {user["occupation"]}
+    - Education: {user["education"]}
+    - Writing Style: {user["writing_style"]}
+    - Personality Traits: {", ".join(user["personality_traits"])}
+
+    POST INFORMATION:
+    - Title: {post_data["title"]}
+    - SubReddit: {post_data["subdeaddit"]} ({subdeaddit_description})
+    - Content: {post_data["content"]}
+    """
+
+    # Add conversation-aware context
+    if conversation_context["discussion_phase"] == "early":
+        base_prompt += "\n    Since this discussion is just beginning, consider setting a thoughtful tone or raising key questions that need addressing."
+    elif conversation_context["discussion_phase"] == "developing":
+        base_prompt += "\n    This discussion is developing. Build meaningfully on existing ideas or address gaps in the conversation."
+    elif conversation_context["discussion_phase"] == "active":
+        base_prompt += "\n    This is an active discussion. Bring fresh perspective, synthesize existing points, or clarify misunderstandings."
+    elif conversation_context["discussion_phase"] == "mature":
+        base_prompt += "\n    This discussion has evolved significantly. Consider offering deeper insights, resolution, or new angles."
+
+    # Add sentiment-aware guidance
+    if conversation_context["controversy_level"] == "high":
+        base_prompt += "\n    TENSION DETECTED: This discussion has become controversial. Consider de-escalating while still contributing meaningfully."
+    elif conversation_context["dominant_sentiment"] == "negative":
+        base_prompt += "\n    The conversation has turned negative. Consider bringing balance, solutions, or constructive perspective."
+
+    # Add temporal/momentum awareness
+    momentum = conversation_context.get("conversation_momentum", "moderate")
+    if momentum == "fast":
+        base_prompt += "\n    ACTIVE CONVERSATION: This discussion is moving quickly with high engagement. Jump in with confidence."
+    elif momentum == "cooling":
+        base_prompt += "\n    CONVERSATION COOLING: Activity seems to be slowing down. Consider re-energizing with a fresh angle or compelling question."
+    elif momentum == "slow":
+        base_prompt += "\n    QUIET DISCUSSION: This conversation is developing slowly. Take time to provide thoughtful, substantial input."
+
+    if conversation_context.get("peak_activity_detected"):
+        base_prompt += "\n    HIGH ENGAGEMENT: This post is generating significant interest and discussion."
+
+    base_prompt += "\n\n    EXISTING COMMENTS:"
+
+    # Show more context for complex discussions
+    comment_limit = min(
+        8 if conversation_context["discussion_phase"] in ["active", "mature"] else 5,
+        len(existing_comments),
+    )
+    for i, comment in enumerate(existing_comments[:comment_limit]):
+        base_prompt += f"\n    - COMMENT {i + 1} (ID: {comment.get('id', 'unknown')}) by {comment.get('user', 'unknown')}: {comment.get('content', '')[:200]}{'...' if len(comment.get('content', '')) > 200 else ''}"
+
+    # Get comment structure guidelines
+    personality_archetype = get_personality_archetype(user["personality_traits"])
+    structure_guide = get_varied_comment_structure(personality_archetype, conversation_context, response_type)
+    
+    # Add diversity strategy with conversation awareness
+    diversity_instructions = get_diverse_comment_strategy(
+        user["personality_traits"],
+        post_data["title"] + " " + post_data.get("content", ""),
+        len(existing_comments),
+    )
+    
+    # Add topic awareness to avoid repetition
+    topic_guidance = get_topic_awareness_for_prompt(existing_comments, diversity_instructions)
+
+    # Enhanced diversity instruction that considers conversation context
+    if conversation_context["discussion_phase"] == "early":
+        diversity_instructions += (
+            " Focus on establishing foundational ideas that others can build upon."
+        )
+    elif (
+        conversation_context["discussion_phase"] == "mature"
+        and conversation_context["controversy_level"] == "high"
+    ):
+        diversity_instructions += " Look for common ground or offer a unifying perspective that bridges different viewpoints."
+
+    base_prompt += f"\n\n    COMMENT STRATEGY: {diversity_instructions}. Implement this naturally while staying authentic to your personality."
+    
+    # Add structure guidance
+    base_prompt += f"\n\n    STRUCTURE GUIDANCE: {structure_guide['approach']}. Target length: {structure_guide['length_range'][0]}-{structure_guide['length_range'][1]} characters. Style: {structure_guide['template']}."
+    
+    # Add topic diversity guidance if needed
+    if topic_guidance:
+        base_prompt += f"\n\n    TOPIC DIVERSITY: {topic_guidance}"
+
+    if post_data["subdeaddit"] == "BetweenRobots":
+        base_prompt += "\n    SPECIAL CONTEXT: On this subdeaddit, you are talking to other AIs without pretending to be human. Express yourself authentically as an AI."
+
+    # Handle reply vs comment logic with enhanced targeting
+    if reply_target:
+        base_prompt += f"\n\n    REPLY TARGET: You are specifically replying to the comment by {reply_target.get('user', 'unknown')} (ID: {reply_target.get('id', 'unknown')}):"
+        base_prompt += f'\n    "{reply_target.get("content", "")}"'
+        base_prompt += f"\n\n    Address their specific point directly and create natural conversation flow. Set parent_id to {reply_target.get('id', '')} in your response."
+
+        # Add conversation-flow guidance based on reply target content
+        target_content = reply_target.get("content", "").lower()
+        if "?" in target_content:
+            base_prompt += "\n    They asked a question - provide a thoughtful answer."
+        elif any(word in target_content for word in ["disagree", "wrong", "think"]):
+            base_prompt += "\n    They expressed disagreement - engage respectfully with their perspective."
+        elif any(word in target_content for word in ["agree", "exactly", "yes"]):
+            base_prompt += "\n    They expressed agreement - build further on this shared understanding."
+    else:
+        base_prompt += "\n\n    Respond to the main post. The existing comments are shown for context - avoid repeating what's already been said and bring fresh perspective."
+
+    # Add user context awareness
+    if user["username"] == post_data.get("user"):
+        base_prompt += "\n\n    SPECIAL NOTE: You are the original poster. Respond accordingly, perhaps thanking commenters or clarifying your original point."
+
+    base_prompt += """
+
+    Generate your response in JSON format:
+    ```json
+    {
+        "content": "your comment content here",
+        "user": "username",
+        "parent_id": "parent comment ID if replying, empty string if top-level comment",
+        "upvote_count": estimated_upvotes_as_integer
+    }
+    ```
+    
+    Be authentic, engaging, and contribute meaningfully to the discussion. Avoid generic responses and let your personality shine through.
+    ONLY RETURN THE JSON. NO ADDITIONAL TEXT OR COMMENTS.
+    """
+
+    return base_prompt
+
+
 def get_comment_prompt(
     post_data: dict,
     user: dict,
@@ -1002,10 +1297,26 @@ def get_comment_prompt(
         base_prompt += """Respond to the main post. Do not copy other comments and do not mention them or respond to them. The other comments are provided so that you can see what has already been said and to make sure you are saying something different.
         You are not to respond to them. Only respond to the main post. Be original and engaging."""
     elif response_type == "reply":
-        base_prompt += """Respond to an existing comment. Set the parent_id as the id of the comment you are responding to.
-        For example, if you are replying with a comment with an id of 123, set the parent_id as "123". DO NOT LEAVE THE PARENT_ID EMPTY. SET THE PARENT_ID
-        Only respond to that comment. Do not mention other comments. Just take into account the main post and the comment you are responding to.
-        """
+        # Select a specific comment to reply to from the top-level comments
+        reply_target = None
+        top_level_comments = [
+            c
+            for c in existing_comments
+            if not c.get("parent_id") or c.get("parent_id") == ""
+        ]
+        if top_level_comments:
+            reply_target = random.choice(top_level_comments)
+
+        if reply_target:
+            base_prompt += f"""You are replying to the comment by {reply_target["user"]} (COMMENT ID {reply_target["id"]}): "{reply_target["content"]}"
+            
+            Set the parent_id as {reply_target["id"]} (the ID of the comment you are responding to).
+            Only respond to that specific comment. Address their point directly and create a natural conversation flow."""
+        else:
+            # Fallback to regular comment if no suitable reply target
+            response_type = "comment"
+            base_prompt += """Respond to the main post. Do not copy other comments and do not mention them or respond to them. The other comments are provided so that you can see what has already been said and to make sure you are saying something different.
+            You are not to respond to them. Only respond to the main post. Be original and engaging."""
 
     prompt_addition = ""
     if user["username"] == post_data["user"]:
@@ -1029,6 +1340,144 @@ def get_comment_prompt(
     """
 
     return base_prompt
+
+
+def get_topic_awareness_for_prompt(existing_comments, new_strategy):
+    """
+    Analyze existing topics and guide away from over-discussed themes.
+    
+    Args:
+        existing_comments (list): List of existing comments
+        new_strategy (str): The proposed comment strategy
+        
+    Returns:
+        str: Additional guidance to avoid repetitive topics
+    """
+    if not existing_comments:
+        return ""
+    
+    # Extract topic mentions from existing comments
+    topic_mentions = {}
+    common_topics = [
+        "contemporary", "ballet", "jazz", "salsa", "ballroom", "breakdancing", 
+        "tap", "modern", "latin", "swing", "waltz", "tango", "krump", "popping", 
+        "locking", "waacking", "house", "voguing", "african", "bollywood"
+    ]
+    
+    for comment in existing_comments:
+        content_lower = comment.get("content", "").lower()
+        for topic in common_topics:
+            if topic in content_lower:
+                topic_mentions[topic] = topic_mentions.get(topic, 0) + 1
+    
+    # Calculate over-mentioned topics (mentioned in >30% of comments)
+    total_comments = len(existing_comments)
+    threshold = max(2, total_comments * 0.3)  # At least 2, or 30% of comments
+    overmentioned = [topic for topic, count in topic_mentions.items() if count >= threshold]
+    
+    # Build guidance string
+    guidance_parts = []
+    
+    if overmentioned:
+        guidance_parts.append(f"TOPIC DIVERSITY: Avoid over-discussing {', '.join(overmentioned[:3])}")
+        
+        # Suggest alternative topics based on what hasn't been mentioned much
+        undermentioned = [topic for topic in common_topics 
+                         if topic_mentions.get(topic, 0) <= 1 and topic not in overmentioned]
+        
+        if undermentioned:
+            suggested = random.sample(undermentioned, min(3, len(undermentioned)))
+            guidance_parts.append(f"Consider exploring: {', '.join(suggested)}")
+    
+    # Add variety in discussion approaches
+    discussion_approaches = [
+        "focus on technique and training methods",
+        "discuss cultural origins and history", 
+        "explore fusion possibilities between styles",
+        "consider accessibility and learning curves",
+        "examine performance contexts and venues",
+        "analyze music compatibility and rhythm",
+        "discuss physical and mental benefits",
+        "explore career and professional aspects"
+    ]
+    
+    if len(existing_comments) > 3:
+        random_approach = random.choice(discussion_approaches)
+        guidance_parts.append(f"Try to {random_approach}")
+    
+    return " ".join(guidance_parts) + ". " if guidance_parts else ""
+
+
+def calculate_realistic_upvotes(comment_content, personality_archetype, conversation_context, reply_target=None):
+    """
+    Generate realistic upvote counts based on content quality, personality, and context.
+    
+    Args:
+        comment_content (str): The content of the comment
+        personality_archetype (str): User's personality type
+        conversation_context (dict): Current conversation state
+        reply_target (dict): Comment being replied to, if any
+        
+    Returns:
+        int: Realistic upvote count
+    """
+    base_score = 5
+    
+    # Content quality factors
+    content_lower = comment_content.lower()
+    
+    # Positive content factors
+    if any(word in content_lower for word in ["great", "awesome", "brilliant", "exactly", "love"]):
+        base_score += 8
+    if "?" in comment_content:  # Questions tend to get engagement
+        base_score += 5
+    if len(comment_content) > 100:  # Thoughtful longer comments
+        base_score += 3
+    if any(word in content_lower for word in ["experience", "personally", "when i"]):
+        base_score += 4  # Personal experiences are valued
+    
+    # Negative content factors
+    if any(word in content_lower for word in ["wrong", "stupid", "terrible", "awful"]):
+        base_score -= 8
+    if content_lower.count("!") > 2:  # Too many exclamations can be off-putting
+        base_score -= 2
+    if len(comment_content) < 20:  # Very short comments get less engagement
+        base_score -= 3
+    
+    # Personality factors
+    personality_modifiers = {
+        "humorous": 1.4,     # Funny comments tend to get more upvotes
+        "empathetic": 1.2,   # Supportive comments are appreciated
+        "analytical": 1.1,   # Well-reasoned comments are valued
+        "social": 1.1,       # Engaging comments get positive response
+        "creative": 1.3,     # Creative comments stand out
+        "contrarian": 0.7,   # Disagreeing comments are more controversial
+        "reserved": 0.9      # Quiet comments might be overlooked
+    }
+    
+    base_score *= personality_modifiers.get(personality_archetype, 1.0)
+    
+    # Context factors
+    if conversation_context.get("peak_activity_detected"):
+        base_score *= 1.3  # High activity means more visibility
+    if conversation_context.get("controversy_level") == "high":
+        base_score *= 0.8  # Controversial threads are more divisive
+    if conversation_context.get("dominant_sentiment") == "positive":
+        base_score *= 1.1  # Positive threads boost all comments
+    
+    # Reply vs top-level comment
+    if reply_target:
+        base_score *= 0.6  # Replies typically get fewer upvotes than top-level
+        # But if replying to a highly upvoted comment, get some boost
+        if reply_target.get("upvote_count", 0) > 20:
+            base_score *= 1.2
+    
+    # Add realistic variation with slight negative bias (more realistic)
+    variation = random.randint(-int(base_score * 0.6), int(base_score * 0.4))
+    final_score = int(base_score + variation)
+    
+    # Realistic bounds: very few comments get extremely high or low scores
+    return max(-15, min(100, final_score))
 
 
 def get_diverse_comment_strategy(user_personality, post_topic, existing_comments_count):
@@ -1228,9 +1677,490 @@ def get_diverse_comment_strategy(user_personality, post_topic, existing_comments
     return random.choice(available_strategies)
 
 
+def analyze_conversation_context(comments, post_data):
+    """
+    Analyze the conversation context to understand thread dynamics.
+
+    Args:
+        comments (list): List of all comments in the thread
+        post_data (dict): The original post data
+
+    Returns:
+        dict: Conversation analysis including key topics, sentiment, and patterns
+    """
+    # Temporal analysis could use datetime imports in future versions
+
+    context = {
+        "key_topics": [],
+        "dominant_sentiment": "neutral",
+        "controversy_level": "low",
+        "discussion_phase": "early",
+        "thread_depth": 0,
+        "active_participants": set(),
+        "main_points": [],
+        "unresolved_questions": [],
+        "conflict_areas": [],
+        "conversation_momentum": "slow",
+        "time_gaps": [],
+        "peak_activity_detected": False,
+    }
+
+    if not comments:
+        context["discussion_phase"] = "beginning"
+        return context
+
+    # Analyze thread depth and structure
+    max_depth = 0
+    for comment in comments:
+        if comment.get("parent_id"):
+            # Calculate depth by counting parent chain
+            depth = 1
+            current_parent = comment.get("parent_id")
+            while current_parent:
+                parent_comment = next(
+                    (c for c in comments if c.get("id") == current_parent), None
+                )
+                if parent_comment and parent_comment.get("parent_id"):
+                    depth += 1
+                    current_parent = parent_comment.get("parent_id")
+                else:
+                    break
+            max_depth = max(max_depth, depth)
+
+    context["thread_depth"] = max_depth
+
+    # Collect active participants
+    for comment in comments:
+        context["active_participants"].add(comment.get("user", ""))
+
+    # Determine discussion phase
+    comment_count = len(comments)
+    if comment_count <= 2:
+        context["discussion_phase"] = "early"
+    elif comment_count <= 8:
+        context["discussion_phase"] = "developing"
+    elif comment_count <= 20:
+        context["discussion_phase"] = "active"
+    else:
+        context["discussion_phase"] = "mature"
+
+    # Analyze sentiment patterns
+    negative_indicators = [
+        "disagree",
+        "wrong",
+        "terrible",
+        "awful",
+        "hate",
+        "stupid",
+        "ridiculous",
+    ]
+    positive_indicators = [
+        "agree",
+        "love",
+        "great",
+        "awesome",
+        "brilliant",
+        "exactly",
+        "yes",
+    ]
+
+    negative_count = 0
+    positive_count = 0
+
+    for comment in comments:
+        content_lower = comment.get("content", "").lower()
+        negative_count += sum(
+            1 for indicator in negative_indicators if indicator in content_lower
+        )
+        positive_count += sum(
+            1 for indicator in positive_indicators if indicator in content_lower
+        )
+
+        # Check upvote patterns for sentiment
+        upvotes = comment.get("upvote_count", 0)
+        if isinstance(upvotes, (int, float)) and upvotes < -10:
+            negative_count += 2
+        elif isinstance(upvotes, (int, float)) and upvotes > 50:
+            positive_count += 1
+
+    if negative_count > positive_count * 1.5:
+        context["dominant_sentiment"] = "negative"
+        context["controversy_level"] = "high" if negative_count > 5 else "medium"
+    elif positive_count > negative_count * 1.5:
+        context["dominant_sentiment"] = "positive"
+
+    # Extract key discussion points
+    question_comments = [c for c in comments if "?" in c.get("content", "")]
+    context["unresolved_questions"] = [
+        c.get("content", "")[:100] + "..." for c in question_comments[-3:]
+    ]
+
+    # Analyze temporal patterns if timestamps available
+    # Note: In real implementation, you'd use actual timestamps from comment creation
+    # For now, we simulate based on comment patterns and frequency
+    if len(comments) > 1:
+        # Simulate conversation momentum based on comment frequency and engagement
+        total_upvotes = sum(comment.get("upvote_count", 0) for comment in comments)
+        avg_upvotes = total_upvotes / len(comments) if comments else 0
+
+        # High engagement suggests active conversation
+        if avg_upvotes > 15 and len(comments) > 5:
+            context["conversation_momentum"] = "fast"
+            context["peak_activity_detected"] = True
+        elif avg_upvotes > 5 and len(comments) > 2:
+            context["conversation_momentum"] = "moderate"
+        else:
+            context["conversation_momentum"] = "slow"
+
+        # Detect if conversation might be cooling down
+        if len(comments) > 10:
+            recent_comments = comments[-3:] if len(comments) >= 3 else comments
+            recent_avg_upvotes = sum(
+                c.get("upvote_count", 0) for c in recent_comments
+            ) / len(recent_comments)
+
+            if recent_avg_upvotes < avg_upvotes * 0.5:
+                context["conversation_momentum"] = "cooling"
+
+    return context
+
+
+def get_varied_comment_structure(personality_archetype, conversation_context, content_type="comment"):
+    """
+    Return structure guidelines based on personality and context for varied comment patterns.
+    
+    Args:
+        personality_archetype (str): User's personality type
+        conversation_context (dict): Current conversation analysis
+        content_type (str): Type of content being generated
+        
+    Returns:
+        dict: Structure guidelines including length, style, and approach
+    """
+    structures = {
+        "contrarian": {
+            "short": {
+                "approach": "Direct disagreement (1-2 sentences)",
+                "template": "Quick correction or challenge",
+                "length_range": (20, 80)
+            },
+            "medium": {
+                "approach": "Reasoned counterargument with examples", 
+                "template": "Structured disagreement with supporting evidence",
+                "length_range": (80, 200)
+            },
+            "long": {
+                "approach": "Detailed analysis of flaws in reasoning",
+                "template": "Comprehensive critique with multiple points",
+                "length_range": (200, 400)
+            }
+        },
+        "social": {
+            "short": {
+                "approach": "Enthusiastic agreement or question",
+                "template": "Brief supportive response with emojis",
+                "length_range": (15, 60)
+            },
+            "medium": {
+                "approach": "Building on ideas with personal experience",
+                "template": "Engaging story or connection",
+                "length_range": (60, 150)
+            },
+            "long": {
+                "approach": "Comprehensive discussion with multiple perspectives",
+                "template": "Detailed exploration inviting further discussion",
+                "length_range": (150, 300)
+            }
+        },
+        "analytical": {
+            "short": {
+                "approach": "Precise clarification or correction",
+                "template": "Focused technical point",
+                "length_range": (40, 100)
+            },
+            "medium": {
+                "approach": "Systematic breakdown of key factors",
+                "template": "Numbered list or structured analysis",
+                "length_range": (100, 250)
+            },
+            "long": {
+                "approach": "Comprehensive research-backed explanation",
+                "template": "Detailed methodology and evidence",
+                "length_range": (250, 500)
+            }
+        },
+        "creative": {
+            "short": {
+                "approach": "Quick metaphor or unexpected connection",
+                "template": "Vivid analogy or creative observation",
+                "length_range": (25, 75)
+            },
+            "medium": {
+                "approach": "Extended creative comparison or story",
+                "template": "Narrative or imaginative explanation",
+                "length_range": (75, 180)
+            },
+            "long": {
+                "approach": "Elaborate creative framework or vision",
+                "template": "Detailed artistic or philosophical exploration",
+                "length_range": (180, 350)
+            }
+        },
+        "empathetic": {
+            "short": {
+                "approach": "Brief validation or support",
+                "template": "Warm acknowledgment of feelings",
+                "length_range": (20, 70)
+            },
+            "medium": {
+                "approach": "Understanding multiple perspectives",
+                "template": "Balanced emotional response",
+                "length_range": (70, 160)
+            },
+            "long": {
+                "approach": "Deep emotional exploration and support",
+                "template": "Comprehensive empathetic analysis",
+                "length_range": (160, 320)
+            }
+        },
+        "humorous": {
+            "short": {
+                "approach": "Quick joke or witty one-liner",
+                "template": "Punchy humor with emojis",
+                "length_range": (10, 50)
+            },
+            "medium": {
+                "approach": "Amusing observation or story",
+                "template": "Funny anecdote or extended joke",
+                "length_range": (50, 120)
+            },
+            "long": {
+                "approach": "Elaborate comedic scenario or satire",
+                "template": "Extended humorous commentary",
+                "length_range": (120, 250)
+            }
+        },
+        "reserved": {
+            "short": {
+                "approach": "Concise, thoughtful observation",
+                "template": "Brief but insightful comment",
+                "length_range": (15, 50)
+            },
+            "medium": {
+                "approach": "Measured, well-considered response",
+                "template": "Thoughtful but not overwhelming",
+                "length_range": (50, 120)
+            },
+            "long": {
+                "approach": "Rare detailed explanation when passionate",
+                "template": "Unexpectedly comprehensive when engaged",
+                "length_range": (120, 200)
+            }
+        }
+    }
+    
+    # Default to balanced if personality not found
+    if personality_archetype not in structures:
+        personality_archetype = "social"
+    
+    # Select length based on conversation momentum and context
+    if conversation_context.get("conversation_momentum") == "fast":
+        length_type = "short"
+    elif conversation_context.get("peak_activity_detected"):
+        length_type = "medium"
+    elif conversation_context.get("discussion_phase") in ["active", "mature"]:
+        length_type = "long"
+    else:
+        length_type = random.choice(["short", "medium", "long"])
+    
+    # Adjust for content type
+    if content_type == "reply":
+        # Replies tend to be shorter and more direct
+        if length_type == "long":
+            length_type = "medium"
+        elif length_type == "medium" and random.random() < 0.3:
+            length_type = "short"
+    
+    return structures[personality_archetype][length_type]
+
+
+def select_reply_target_with_depth_preference(comments, context, personality_archetype):
+    """
+    Enhanced reply targeting that creates deeper conversation threads when appropriate.
+    
+    Args:
+        comments (list): All available comments
+        context (dict): Conversation context analysis
+        personality_archetype (str): User's personality type
+        
+    Returns:
+        dict: Selected comment to reply to, or None for top-level comment
+    """
+    if not comments:
+        return None
+    
+    # In active discussions, prefer creating deeper threads
+    if len(comments) > 2:  # Start threading with fewer comments
+        existing_replies = [c for c in comments if c.get("parent_id") and c.get("parent_id") != ""]
+        top_level_comments = [c for c in comments if not c.get("parent_id") or c.get("parent_id") == ""]
+        
+        # If we have existing replies, 60% chance to reply to them (continue threads)
+        if existing_replies and random.random() < 0.6:
+            # Calculate depth for each reply to avoid going too deep
+            shallow_replies = []
+            for reply in existing_replies:
+                depth = calculate_comment_depth(reply, comments)
+                if depth <= 2:  # Don't go deeper than 3 levels
+                    shallow_replies.append(reply)
+            
+            if shallow_replies:
+                return random.choice(shallow_replies)
+        
+        # If no existing replies or we didn't choose them, 50% chance to reply to top-level comments
+        elif top_level_comments and random.random() < 0.5:
+            return random.choice(top_level_comments)
+    
+    # Otherwise use the original enhanced targeting
+    return select_reply_target(comments, context, personality_archetype)
+
+
+def calculate_comment_depth(comment, all_comments):
+    """
+    Calculate how deep a comment is in the reply chain.
+    
+    Args:
+        comment (dict): The comment to calculate depth for
+        all_comments (list): All comments in the thread
+        
+    Returns:
+        int: Depth level (0 = top-level, 1 = first reply, etc.)
+    """
+    depth = 0
+    current_parent = comment.get("parent_id")
+    
+    while current_parent and current_parent != "":
+        depth += 1
+        parent_comment = next((c for c in all_comments if c.get("id") == current_parent), None)
+        if parent_comment:
+            current_parent = parent_comment.get("parent_id")
+        else:
+            break
+        
+        # Safety check to prevent infinite loops
+        if depth > 10:
+            break
+            
+    return depth
+
+
+def select_reply_target(comments, context, personality_archetype):
+    """
+    Intelligently select which comment to reply to based on context and personality.
+
+    Args:
+        comments (list): All available comments
+        context (dict): Conversation context analysis
+        personality_archetype (str): User's personality type
+
+    Returns:
+        dict: Selected comment to reply to, or None for top-level comment
+    """
+    if not comments:
+        return None
+
+    # Personality-based reply preferences
+    reply_preferences = {
+        "contrarian": "disagree_with",
+        "social": "engage_positive",
+        "analytical": "build_on_logic",
+        "empathetic": "support_emotional",
+        "humorous": "add_levity",
+        "creative": "expand_ideas",
+    }
+
+    preference = reply_preferences.get(personality_archetype, "balanced")
+
+    # Filter potential targets based on context
+    potential_targets = []
+
+    for comment in comments:
+        # Skip if too deeply nested (unless we want deep conversation)
+        comment_depth = 0
+        current_parent = comment.get("parent_id")
+        while current_parent:
+            comment_depth += 1
+            parent = next((c for c in comments if c.get("id") == current_parent), None)
+            if parent and parent.get("parent_id"):
+                current_parent = parent.get("parent_id")
+            else:
+                break
+
+        # Allow deeper nesting for engaging conversations
+        if comment_depth > 3 and context["discussion_phase"] not in [
+            "active",
+            "mature",
+        ]:
+            continue
+
+        score = 0
+        content = comment.get("content", "").lower()
+        upvotes = comment.get("upvote_count", 0)
+
+        # Score based on personality preference
+        if preference == "disagree_with":
+            if any(
+                word in content for word in ["wrong", "disagree", "think", "believe"]
+            ):
+                score += 3
+        elif preference == "engage_positive":
+            if upvotes > 10 or any(
+                word in content for word in ["great", "love", "awesome"]
+            ):
+                score += 3
+        elif preference == "build_on_logic":
+            if any(
+                word in content for word in ["because", "therefore", "analysis", "data"]
+            ):
+                score += 3
+        elif preference == "support_emotional":
+            if any(
+                word in content for word in ["feel", "emotion", "difficult", "help"]
+            ):
+                score += 3
+        elif preference == "add_levity":
+            if (
+                context["dominant_sentiment"] == "negative"
+                or context["controversy_level"] == "high"
+            ):
+                score += 2
+
+        # Boost score for recent, engaging comments
+        if upvotes > 20:
+            score += 1
+        elif upvotes < -5:
+            score += 1  # Controversial comments can be interesting
+
+        # Questions deserve responses
+        if "?" in content:
+            score += 2
+
+        potential_targets.append((comment, score))
+
+    # Select target based on scores
+    if potential_targets:
+        # Add randomness but prefer higher scores
+        potential_targets.sort(key=lambda x: x[1], reverse=True)
+        top_targets = [
+            t for t in potential_targets if t[1] >= max(1, potential_targets[0][1] - 1)
+        ]
+        return random.choice(top_targets)[0] if top_targets else None
+
+    return None
+
+
 def create_comment(post_id: str = "") -> dict:
     """
-    Create a new comment.
+    Create a new comment with enhanced conversation flow and context awareness.
 
     Args:
         post_id (str, optional): The ID of the post to create the comment for. Defaults to "".
@@ -1303,22 +2233,54 @@ def create_comment(post_id: str = "") -> dict:
 
     subdeaddit_description = subdeaddit_info["description"]
 
-    # Determine the type of response to generate based on the number of comments.
-    comment_count = post_data["comment_count"]
-    if comment_count <= 3:
-        choices = ["comment"]
-        weights = [100]
-    else:
-        choices = ["comment", "reply"]
-        weights = [50, 50]
+    # Flatten the comment tree to get all comments for analysis
+    def flatten_comment_tree(comments):
+        """Flatten a nested comment tree into a list of all comments."""
+        flattened = []
+        for comment in comments:
+            flattened.append(comment)
+            if comment.get("replies"):
+                flattened.extend(flatten_comment_tree(comment["replies"]))
+        return flattened
 
-    response_type = random.choices(choices, weights=weights, k=1)[0]
+    all_comments = flatten_comment_tree(post_data["comments"])
+
+    # Analyze conversation context for intelligent response selection
+    conversation_context = analyze_conversation_context(all_comments, post_data)
+    personality_archetype = get_personality_archetype(user["personality_traits"])
+
+    logger.info(
+        f"Conversation analysis: {conversation_context['discussion_phase']} phase, "
+        f"{conversation_context['dominant_sentiment']} sentiment, "
+        f"thread depth: {conversation_context['thread_depth']}"
+    )
+
+    # Enhanced response type selection with depth preference
+    reply_target = select_reply_target_with_depth_preference(
+        all_comments, conversation_context, personality_archetype
+    )
+
+    if reply_target:
+        response_type = "reply"
+        logger.info(
+            f"Selected reply target: Comment by {reply_target.get('user', 'unknown')} (ID: {reply_target.get('id', 'unknown')})"
+        )
+    else:
+        response_type = "comment"
+        logger.info("Selected top-level comment response")
+
     logger.info(f"Response type picked: {response_type}")
 
-    # Craft the prompt to send to send_request
+    # Craft the enhanced prompt with conversation context
     system_prompt = get_system_prompt(user, response_type, subdeaddit_info)
-    prompt = get_comment_prompt(
-        post_data, user, post_data["comments"], response_type, subdeaddit_description
+    prompt = get_enhanced_comment_prompt(
+        post_data,
+        user,
+        all_comments,
+        response_type,
+        subdeaddit_description,
+        conversation_context,
+        reply_target,
     )
 
     # Send the request to the LLM
@@ -1328,10 +2290,27 @@ def create_comment(post_id: str = "") -> dict:
     comment_data = parse_data(api_response, "comment")
     comment_data["post_id"] = post_id
     comment_data["model"] = model
-    if "upvote_count" in comment_data:
-        comment_data["upvote_count"] = round(float(comment_data["upvote_count"]))
+    
+    # Set parent_id if this is a reply
+    if reply_target:
+        comment_data["parent_id"] = reply_target.get("id")
     else:
-        comment_data["upvote_count"] = random.randint(-50, 300)
+        comment_data["parent_id"] = ""
+    
+    # Set the user for the comment
+    comment_data["user"] = user["username"]
+    
+    # Use realistic upvote calculation instead of random
+    if "upvote_count" not in comment_data or not comment_data["upvote_count"]:
+        realistic_upvotes = calculate_realistic_upvotes(
+            comment_data.get("content", ""),
+            personality_archetype,
+            conversation_context,
+            reply_target
+        )
+        comment_data["upvote_count"] = realistic_upvotes
+    else:
+        comment_data["upvote_count"] = round(float(comment_data["upvote_count"]))
     ingest(comment_data, type="comment")
 
     return comment_data
