@@ -297,7 +297,7 @@ def build_comment_tree(comments):
     comment_tree = []
 
     for comment in comments:
-        if comment.parent_id == "":
+        if comment.parent_id is None or comment.parent_id == "":
             comment_tree.append(format_comment(comment, comment_map))
 
     return comment_tree
@@ -308,6 +308,7 @@ def format_comment(comment, comment_map):
         "id": comment.id,
         "user": comment.user,
         "content": comment.content.replace("reddit", "deaddit"),
+        "parent_id": comment.parent_id,
         "replies": [],
     }
 
@@ -353,7 +354,7 @@ def ingest_user():
         education=data["education"],
         writing_style=data["writing_style"],
         personality_traits=json.dumps(data["personality_traits"]),
-        model=json.dumps(data["model"]),
+        model=data.get("model", "unknown"),
     )
 
     db.session.add(user)
@@ -383,7 +384,7 @@ def get_users():
             "education": user.education,
             "writing_style": user.writing_style,
             "personality_traits": json.loads(user.personality_traits),
-            "model": json.loads(user.model),
+            "model": user.model if isinstance(user.model, str) else json.loads(user.model) if user.model else "unknown",
         }
         for user in users
     ]
