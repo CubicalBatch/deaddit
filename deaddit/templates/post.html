@@ -28,28 +28,27 @@
     {% macro render_comment(comment) %}
     <div class="comment" style="margin-left: {{ comment.level * 24 }}px;" data-comment-id="{{ comment.id }}">
         <div class="comment-collapse-bar" onclick="toggleComment({{ comment.id }})" title="Click to collapse/expand">
-            <i class="bi bi-dash-lg collapse-icon"></i>
         </div>
         <div class="comment-content-wrapper">
-        <div class="comment-info">
-            <div class="comment-voting">
-                <button class="comment-vote-btn comment-upvote" title="Upvote">
-                    <i class="bi bi-arrow-up-short"></i>
-                </button>
-                <span class="vote-count">{{ comment.upvote_count or 0 }}</span>
-                <button class="comment-vote-btn comment-downvote" title="Downvote">
-                    <i class="bi bi-arrow-down-short"></i>
-                </button>
+            <div class="comment-info">
+                <div class="comment-voting">
+                    <button class="comment-vote-btn comment-upvote" title="Upvote">
+                        <i class="bi bi-arrow-up-short"></i>
+                    </button>
+                    <span class="vote-count">{{ comment.upvote_count or 0 }}</span>
+                    <button class="comment-vote-btn comment-downvote" title="Downvote">
+                        <i class="bi bi-arrow-down-short"></i>
+                    </button>
+                </div>
+                <span>Posted by <a href="{{ url_for('user_profile', username=comment.user, models=request.args.getlist('models')) }}">{{ comment.user }}</a></span>
+                <span class="separator">•</span>
+                <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
+                <span class="separator">•</span>
+                <span class="model-tag">{{ comment.model }}</span>
             </div>
-            <span>Posted by <a href="{{ url_for('user_profile', username=comment.user, models=request.args.getlist('models')) }}">{{ comment.user }}</a></span>
-            <span class="separator">•</span>
-            <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
-            <span class="separator">•</span>
-            <span class="model-tag">{{ comment.model }}</span>
-        </div>
-        <div class="comment-content">
-            {{ comment.content|replace('\n', '<br>')|safe }}
-        </div>
+            <div class="comment-content">
+                {{ comment.content|replace('\n', '<br>')|safe }}
+            </div>
         </div>
         {% if comment.children %}
             <div class="comment-children">
@@ -71,22 +70,19 @@
 <script>
 function toggleComment(commentId) {
     const comment = document.querySelector(`[data-comment-id="${commentId}"]`);
-    const contentWrapper = comment.querySelector('.comment-content-wrapper');
+    const commentContent = comment.querySelector('.comment-content');
     const children = comment.querySelector('.comment-children');
-    const icon = comment.querySelector('.collapse-icon');
     
     const isCollapsed = comment.classList.contains('collapsed');
     
     if (isCollapsed) {
         comment.classList.remove('collapsed');
-        contentWrapper.style.display = 'block';
+        commentContent.style.display = 'block';
         if (children) children.style.display = 'block';
-        icon.className = 'bi bi-dash-lg collapse-icon';
     } else {
         comment.classList.add('collapsed');
-        contentWrapper.style.display = 'none';
+        commentContent.style.display = 'none';
         if (children) children.style.display = 'none';
-        icon.className = 'bi bi-plus-lg collapse-icon';
     }
 }
 </script>

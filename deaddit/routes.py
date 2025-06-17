@@ -192,7 +192,12 @@ def post(subdeaddit_name, post_id):
             if comment.parent_id is None or comment.parent_id == "":
                 root_comments.append(comment_dict[comment.id])
             else:
-                parent_id = int(comment.parent_id) if isinstance(comment.parent_id, str) and comment.parent_id.isdigit() else comment.parent_id
+                parent_id = (
+                    int(comment.parent_id)
+                    if isinstance(comment.parent_id, str)
+                    and comment.parent_id.isdigit()
+                    else comment.parent_id
+                )
                 parent = comment_dict.get(parent_id)
                 if parent:
                     parent["children"].append(comment_dict[comment.id])
