@@ -1,11 +1,6 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="subdeaddit-header">
-    <h1 class="subdeaddit-title">{{ subdeaddit_name }}</h1>
-    <p class="subdeaddit-subtitle">Community posts and discussions</p>
-</div>
-
 {% set hide_subdeaddit = true %}
 {% include 'partials/post_list.html' %}
 {% endblock %}
