@@ -235,26 +235,20 @@ body {
 }
 
 .comment {
-    border-left: 2px solid var(--border-color);
-    padding: var(--space-md);
-    margin-bottom: var(--space-sm);
-    background-color: rgba(255, 255, 255, 0.3);
     position: relative;
-    transition: all 0.2s ease;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-sm);
 }
 
-.night-mode .comment {
+.night-mode .comment-content-wrapper {
     background-color: rgba(255, 255, 255, 0.02);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.comment:hover {
+.comment-content-wrapper:hover {
     background-color: rgba(255, 255, 255, 0.5);
 }
 
-.night-mode .comment:hover {
+.night-mode .comment-content-wrapper:hover {
     background-color: rgba(255, 255, 255, 0.04);
 }
 
@@ -531,9 +525,6 @@ body {
     width: 6px;
     background-color: var(--border-color);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     opacity: 0.5;
     transition: all 0.2s ease;
     border-radius: var(--radius-sm);
@@ -545,11 +536,6 @@ body {
     width: 8px;
 }
 
-.collapse-icon {
-    font-size: 12px;
-    color: var(--surface-color);
-    transition: all 0.2s ease;
-}
 
 .comment.collapsed {
     min-height: 40px;
@@ -560,7 +546,13 @@ body {
 }
 
 .comment-content-wrapper {
+    border-left: 2px solid var(--border-color);
+    padding: var(--space-md);
+    background-color: rgba(255, 255, 255, 0.3);
     transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: var(--radius-sm);
+    position: relative;
 }
 
 .comment-children {
@@ -701,8 +693,11 @@ body {
 
     .comment {
         margin-left: calc(var(--level, 0) * var(--space-md)) !important;
-        padding: var(--space-sm);
         margin-bottom: var(--space-md);
+    }
+    
+    .comment-content-wrapper {
+        padding: var(--space-sm);
     }
 
     .comment-voting {

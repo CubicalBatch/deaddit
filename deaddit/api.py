@@ -384,7 +384,11 @@ def get_users():
             "education": user.education,
             "writing_style": user.writing_style,
             "personality_traits": json.loads(user.personality_traits),
-            "model": user.model if isinstance(user.model, str) else json.loads(user.model) if user.model else "unknown",
+            "model": user.model
+            if isinstance(user.model, str)
+            else json.loads(user.model)
+            if user.model
+            else "unknown",
         }
         for user in users
     ]

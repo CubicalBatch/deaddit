@@ -695,7 +695,10 @@ def api_delete_subdeaddit(name):
 
         # Delete associated content
         # First get comment IDs to delete (can't use join().delete())
-        comment_ids = [c.id for c in Comment.query.join(Post).filter(Post.subdeaddit_name == name).all()]
+        comment_ids = [
+            c.id
+            for c in Comment.query.join(Post).filter(Post.subdeaddit_name == name).all()
+        ]
         for comment_id in comment_ids:
             Comment.query.filter_by(id=comment_id).delete()
 
@@ -744,7 +747,12 @@ def api_bulk_delete_subdeaddits():
                 )
 
                 # First get comment IDs to delete (can't use join().delete())
-                comment_ids = [c.id for c in Comment.query.join(Post).filter(Post.subdeaddit_name == name).all()]
+                comment_ids = [
+                    c.id
+                    for c in Comment.query.join(Post)
+                    .filter(Post.subdeaddit_name == name)
+                    .all()
+                ]
                 for comment_id in comment_ids:
                     Comment.query.filter_by(id=comment_id).delete()
 

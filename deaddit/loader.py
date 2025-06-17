@@ -143,98 +143,228 @@ def get_dynamic_temperature(user_personality_traits, content_type="post"):
     return max(0.3, min(1.3, round(base_temp, 2)))
 
 
-def create_mock_response(prompt: str, content_type: str, user_personality_traits=None) -> tuple:
+def create_mock_response(
+    prompt: str, content_type: str, user_personality_traits=None
+) -> tuple:
     """
     Generate realistic mock responses for testing when API is unavailable.
-    
+
     Args:
         prompt (str): The user prompt
         content_type (str): Type of content being generated
         user_personality_traits (list): User personality traits for response variation
-        
+
     Returns:
         tuple: (mock_response_object, mock_model_name)
     """
     import json
     from types import SimpleNamespace
-    
+
     # Personality-driven response templates
     mock_responses = {
         "comment": {
             "contrarian": [
-                {"content": "I have to respectfully disagree here. The evidence suggests otherwise because...", "upvote_count": -2, "parent_id": ""},
-                {"content": "This is a common misconception. What you're missing is...", "upvote_count": 5, "parent_id": ""},
-                {"content": "Actually, that's not quite right. Let me explain why...", "upvote_count": 12, "parent_id": ""}
+                {
+                    "content": "I have to respectfully disagree here. The evidence suggests otherwise because...",
+                    "upvote_count": -2,
+                    "parent_id": "",
+                },
+                {
+                    "content": "This is a common misconception. What you're missing is...",
+                    "upvote_count": 5,
+                    "parent_id": "",
+                },
+                {
+                    "content": "Actually, that's not quite right. Let me explain why...",
+                    "upvote_count": 12,
+                    "parent_id": "",
+                },
             ],
             "social": [
-                {"content": "This is such a great discussion! I love how everyone is sharing their perspectives 💃", "upvote_count": 25, "parent_id": ""},
-                {"content": "You all are making excellent points! Here's what I think...", "upvote_count": 18, "parent_id": ""},
-                {"content": "Thanks for starting this conversation! It really got me thinking about...", "upvote_count": 15, "parent_id": ""}
+                {
+                    "content": "This is such a great discussion! I love how everyone is sharing their perspectives 💃",
+                    "upvote_count": 25,
+                    "parent_id": "",
+                },
+                {
+                    "content": "You all are making excellent points! Here's what I think...",
+                    "upvote_count": 18,
+                    "parent_id": "",
+                },
+                {
+                    "content": "Thanks for starting this conversation! It really got me thinking about...",
+                    "upvote_count": 15,
+                    "parent_id": "",
+                },
             ],
             "analytical": [
-                {"content": "Looking at this from a technical perspective, there are several factors to consider: 1) technique complexity, 2) adaptability across genres, 3) cultural impact...", "upvote_count": 45, "parent_id": ""},
-                {"content": "The data actually shows that versatility can be measured across multiple dimensions...", "upvote_count": 32, "parent_id": ""},
-                {"content": "If we break this down systematically, we need to define what 'versatile' means in this context...", "upvote_count": 28, "parent_id": ""}
+                {
+                    "content": "Looking at this from a technical perspective, there are several factors to consider: 1) technique complexity, 2) adaptability across genres, 3) cultural impact...",
+                    "upvote_count": 45,
+                    "parent_id": "",
+                },
+                {
+                    "content": "The data actually shows that versatility can be measured across multiple dimensions...",
+                    "upvote_count": 32,
+                    "parent_id": "",
+                },
+                {
+                    "content": "If we break this down systematically, we need to define what 'versatile' means in this context...",
+                    "upvote_count": 28,
+                    "parent_id": "",
+                },
             ],
             "creative": [
-                {"content": "Think of dance styles like colors on a palette - Hip Hop might be bold red, but Contemporary is like a whole rainbow that can blend into anything!", "upvote_count": 35, "parent_id": ""},
-                {"content": "It's like comparing a Swiss Army knife to a paintbrush - both versatile, but in completely different ways.", "upvote_count": 22, "parent_id": ""},
-                {"content": "Imagine if dance styles were languages - some are great for poetry, others for technical manuals...", "upvote_count": 19, "parent_id": ""}
+                {
+                    "content": "Think of dance styles like colors on a palette - Hip Hop might be bold red, but Contemporary is like a whole rainbow that can blend into anything!",
+                    "upvote_count": 35,
+                    "parent_id": "",
+                },
+                {
+                    "content": "It's like comparing a Swiss Army knife to a paintbrush - both versatile, but in completely different ways.",
+                    "upvote_count": 22,
+                    "parent_id": "",
+                },
+                {
+                    "content": "Imagine if dance styles were languages - some are great for poetry, others for technical manuals...",
+                    "upvote_count": 19,
+                    "parent_id": "",
+                },
             ],
             "empathetic": [
-                {"content": "I can really understand why you feel so passionate about Hip Hop. For me, dance has always been about personal expression, and different styles speak to different parts of our souls.", "upvote_count": 31, "parent_id": ""},
-                {"content": "This is such a personal topic for many of us. I think we all connect with different styles based on our experiences...", "upvote_count": 24, "parent_id": ""},
-                {"content": "It's beautiful how dance can mean so many different things to different people. Your passion really comes through!", "upvote_count": 17, "parent_id": ""}
+                {
+                    "content": "I can really understand why you feel so passionate about Hip Hop. For me, dance has always been about personal expression, and different styles speak to different parts of our souls.",
+                    "upvote_count": 31,
+                    "parent_id": "",
+                },
+                {
+                    "content": "This is such a personal topic for many of us. I think we all connect with different styles based on our experiences...",
+                    "upvote_count": 24,
+                    "parent_id": "",
+                },
+                {
+                    "content": "It's beautiful how dance can mean so many different things to different people. Your passion really comes through!",
+                    "upvote_count": 17,
+                    "parent_id": "",
+                },
             ],
             "humorous": [
-                {"content": "Plot twist: What if the most versatile dance style is actually the one where you're alone in your kitchen at 2am making a sandwich? 🕺🥪", "upvote_count": 67, "parent_id": ""},
-                {"content": "I'm just here waiting for someone to argue that the Macarena is peak versatility 😂", "upvote_count": 43, "parent_id": ""},
-                {"content": "*laughs in dad dancing* You all are taking this way too seriously! 💃👨‍🦳", "upvote_count": 29, "parent_id": ""}
-            ]
+                {
+                    "content": "Plot twist: What if the most versatile dance style is actually the one where you're alone in your kitchen at 2am making a sandwich? 🕺🥪",
+                    "upvote_count": 67,
+                    "parent_id": "",
+                },
+                {
+                    "content": "I'm just here waiting for someone to argue that the Macarena is peak versatility 😂",
+                    "upvote_count": 43,
+                    "parent_id": "",
+                },
+                {
+                    "content": "*laughs in dad dancing* You all are taking this way too seriously! 💃👨‍🦳",
+                    "upvote_count": 29,
+                    "parent_id": "",
+                },
+            ],
         },
         "reply": {
             "contrarian": [
-                {"content": "That's exactly the kind of thinking that limits our understanding of the art form.", "upvote_count": 8},
-                {"content": "I see your point, but you're overlooking some key differences here.", "upvote_count": 15},
-                {"content": "Have you actually tried both styles extensively? Because that changes everything.", "upvote_count": 3}
+                {
+                    "content": "That's exactly the kind of thinking that limits our understanding of the art form.",
+                    "upvote_count": 8,
+                },
+                {
+                    "content": "I see your point, but you're overlooking some key differences here.",
+                    "upvote_count": 15,
+                },
+                {
+                    "content": "Have you actually tried both styles extensively? Because that changes everything.",
+                    "upvote_count": 3,
+                },
             ],
             "social": [
-                {"content": "Yes! This is exactly what I was trying to say! You explained it perfectly! 🙌", "upvote_count": 22},
-                {"content": "I love this perspective! It adds so much to what you were saying about...", "upvote_count": 18},
-                {"content": "This conversation is getting so good! Your point about versatility really resonates with me.", "upvote_count": 12}
+                {
+                    "content": "Yes! This is exactly what I was trying to say! You explained it perfectly! 🙌",
+                    "upvote_count": 22,
+                },
+                {
+                    "content": "I love this perspective! It adds so much to what you were saying about...",
+                    "upvote_count": 18,
+                },
+                {
+                    "content": "This conversation is getting so good! Your point about versatility really resonates with me.",
+                    "upvote_count": 12,
+                },
             ],
             "analytical": [
-                {"content": "Your analysis is solid, but consider this additional factor: the learning curve and accessibility for beginners.", "upvote_count": 35},
-                {"content": "Good point. If we're measuring versatility, we should probably include metrics for technical difficulty and cross-style transferability.", "upvote_count": 28},
-                {"content": "Building on your observation - the historical evolution of each style also affects how we define versatility.", "upvote_count": 19}
+                {
+                    "content": "Your analysis is solid, but consider this additional factor: the learning curve and accessibility for beginners.",
+                    "upvote_count": 35,
+                },
+                {
+                    "content": "Good point. If we're measuring versatility, we should probably include metrics for technical difficulty and cross-style transferability.",
+                    "upvote_count": 28,
+                },
+                {
+                    "content": "Building on your observation - the historical evolution of each style also affects how we define versatility.",
+                    "upvote_count": 19,
+                },
             ],
             "creative": [
-                {"content": "That's like saying a river is less beautiful than an ocean - they're both water, but the experience is completely different!", "upvote_count": 41},
-                {"content": "You've painted such a vivid picture! It reminds me of how jazz musicians talk about improvisation...", "upvote_count": 25},
-                {"content": "What if we thought about this like architecture? Hip Hop is like a skyscraper, Contemporary is like a flowing sculpture...", "upvote_count": 16}
+                {
+                    "content": "That's like saying a river is less beautiful than an ocean - they're both water, but the experience is completely different!",
+                    "upvote_count": 41,
+                },
+                {
+                    "content": "You've painted such a vivid picture! It reminds me of how jazz musicians talk about improvisation...",
+                    "upvote_count": 25,
+                },
+                {
+                    "content": "What if we thought about this like architecture? Hip Hop is like a skyscraper, Contemporary is like a flowing sculpture...",
+                    "upvote_count": 16,
+                },
             ],
             "empathetic": [
-                {"content": "I can hear the passion in your words, and I think that's what makes this discussion so valuable. We all bring our own experiences.", "upvote_count": 33},
-                {"content": "Thank you for sharing that perspective. It's helping me see this from a completely different angle.", "upvote_count": 21},
-                {"content": "Your experience really adds depth to this conversation. I appreciate you opening up about that.", "upvote_count": 14}
+                {
+                    "content": "I can hear the passion in your words, and I think that's what makes this discussion so valuable. We all bring our own experiences.",
+                    "upvote_count": 33,
+                },
+                {
+                    "content": "Thank you for sharing that perspective. It's helping me see this from a completely different angle.",
+                    "upvote_count": 21,
+                },
+                {
+                    "content": "Your experience really adds depth to this conversation. I appreciate you opening up about that.",
+                    "upvote_count": 14,
+                },
             ],
             "humorous": [
-                {"content": "Sir, this is a Wendy's. (But seriously, great point about the fusion possibilities!) 😄", "upvote_count": 54},
-                {"content": "*nods sagely while secretly practicing the robot in my head* 🤖", "upvote_count": 38},
-                {"content": "Instructions unclear, accidentally became a professional dancer. Send help. 💃🆘", "upvote_count": 42}
-            ]
-        }
+                {
+                    "content": "Sir, this is a Wendy's. (But seriously, great point about the fusion possibilities!) 😄",
+                    "upvote_count": 54,
+                },
+                {
+                    "content": "*nods sagely while secretly practicing the robot in my head* 🤖",
+                    "upvote_count": 38,
+                },
+                {
+                    "content": "Instructions unclear, accidentally became a professional dancer. Send help. 💃🆘",
+                    "upvote_count": 42,
+                },
+            ],
+        },
     }
-    
+
     # Determine personality archetype
     personality_archetype = "social"  # default
     if user_personality_traits:
         personality_archetype = get_personality_archetype(user_personality_traits)
-    
+
     # Select appropriate response pool
-    response_pool = mock_responses.get(content_type, mock_responses["comment"]).get(personality_archetype, mock_responses["comment"]["social"])
+    response_pool = mock_responses.get(content_type, mock_responses["comment"]).get(
+        personality_archetype, mock_responses["comment"]["social"]
+    )
     selected_response = random.choice(response_pool)
-    
+
     # Create mock API response structure
     mock_content = json.dumps(selected_response)
     mock_api_response = SimpleNamespace(
@@ -245,16 +375,15 @@ def create_mock_response(prompt: str, content_type: str, user_personality_traits
         choices=[
             SimpleNamespace(
                 index=0,
-                message=SimpleNamespace(
-                    role="assistant",
-                    content=mock_content
-                ),
-                finish_reason="stop"
+                message=SimpleNamespace(role="assistant", content=mock_content),
+                finish_reason="stop",
             )
         ],
-        usage=SimpleNamespace(prompt_tokens=100, completion_tokens=50, total_tokens=150)
+        usage=SimpleNamespace(
+            prompt_tokens=100, completion_tokens=50, total_tokens=150
+        ),
     )
-    
+
     return mock_api_response, "mock_model"
 
 
@@ -366,10 +495,10 @@ def send_request(
                 headers=headers,
                 timeout=120,
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
-                
+
                 # Reconstruct the response to match OpenAI library's structure
                 reconstructed_response = SimpleNamespace(
                     id=data.get("id"),
@@ -389,25 +518,31 @@ def send_request(
                     ],
                     usage=SimpleNamespace(**data.get("usage", {})),
                 )
-                
+
                 logger.info(f"Response received using model {selected_model}.")
                 return reconstructed_response, selected_model
             else:
-                logger.warning(f"API call failed (attempt {attempt + 1}/{max_retries}): HTTP {response.status_code}")
+                logger.warning(
+                    f"API call failed (attempt {attempt + 1}/{max_retries}): HTTP {response.status_code}"
+                )
                 if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                    
+                    time.sleep(2**attempt)  # Exponential backoff
+
         except requests.RequestException as e:
-            logger.warning(f"Request error (attempt {attempt + 1}/{max_retries}): {str(e)}")
+            logger.warning(
+                f"Request error (attempt {attempt + 1}/{max_retries}): {str(e)}"
+            )
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2**attempt)  # Exponential backoff
         except Exception as e:
-            logger.error(f"Unexpected error (attempt {attempt + 1}/{max_retries}): {str(e)}")
+            logger.error(
+                f"Unexpected error (attempt {attempt + 1}/{max_retries}): {str(e)}"
+            )
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
-    
+                time.sleep(2**attempt)
+
     # If all retries failed, use mock response for testing
-    logger.warning(f"All API attempts failed. Using mock response for testing purposes.")
+    logger.warning("All API attempts failed. Using mock response for testing purposes.")
     return create_mock_response(prompt, content_type, user_personality_traits)
 
 
@@ -898,12 +1033,12 @@ def get_post_prompt(
     Write a longer post if you think it is necessary.
     Do NOT start posts with: "Hey, fellow redditors", "Hey everyone" or similar phrases.
     Jump directly into your main point or topic. NO GREETINGS.
-    
+
     Community Context:
     - Community tone: {community_culture["tone"]}
     - Typical engagement style: {community_culture["engagement_style"]}
     - Community norms: {", ".join(community_culture["community_norms"]) if community_culture["community_norms"] else "standard discussion"}
-    
+
     {additional_instructions}
     """
 
@@ -1167,17 +1302,21 @@ def get_enhanced_comment_prompt(
 
     # Get comment structure guidelines
     personality_archetype = get_personality_archetype(user["personality_traits"])
-    structure_guide = get_varied_comment_structure(personality_archetype, conversation_context, response_type)
-    
+    structure_guide = get_varied_comment_structure(
+        personality_archetype, conversation_context, response_type
+    )
+
     # Add diversity strategy with conversation awareness
     diversity_instructions = get_diverse_comment_strategy(
         user["personality_traits"],
         post_data["title"] + " " + post_data.get("content", ""),
         len(existing_comments),
     )
-    
+
     # Add topic awareness to avoid repetition
-    topic_guidance = get_topic_awareness_for_prompt(existing_comments, diversity_instructions)
+    topic_guidance = get_topic_awareness_for_prompt(
+        existing_comments, diversity_instructions
+    )
 
     # Enhanced diversity instruction that considers conversation context
     if conversation_context["discussion_phase"] == "early":
@@ -1191,10 +1330,10 @@ def get_enhanced_comment_prompt(
         diversity_instructions += " Look for common ground or offer a unifying perspective that bridges different viewpoints."
 
     base_prompt += f"\n\n    COMMENT STRATEGY: {diversity_instructions}. Implement this naturally while staying authentic to your personality."
-    
+
     # Add structure guidance
     base_prompt += f"\n\n    STRUCTURE GUIDANCE: {structure_guide['approach']}. Target length: {structure_guide['length_range'][0]}-{structure_guide['length_range'][1]} characters. Style: {structure_guide['template']}."
-    
+
     # Add topic diversity guidance if needed
     if topic_guidance:
         base_prompt += f"\n\n    TOPIC DIVERSITY: {topic_guidance}"
@@ -1234,7 +1373,7 @@ def get_enhanced_comment_prompt(
         "upvote_count": estimated_upvotes_as_integer
     }
     ```
-    
+
     Be authentic, engaging, and contribute meaningfully to the discussion. Avoid generic responses and let your personality shine through.
     ONLY RETURN THE JSON. NO ADDITIONAL TEXT OR COMMENTS.
     """
@@ -1309,7 +1448,7 @@ def get_comment_prompt(
 
         if reply_target:
             base_prompt += f"""You are replying to the comment by {reply_target["user"]} (COMMENT ID {reply_target["id"]}): "{reply_target["content"]}"
-            
+
             Set the parent_id as {reply_target["id"]} (the ID of the comment you are responding to).
             Only respond to that specific comment. Address their point directly and create a natural conversation flow."""
         else:
@@ -1345,89 +1484,118 @@ def get_comment_prompt(
 def get_topic_awareness_for_prompt(existing_comments, new_strategy):
     """
     Analyze existing topics and guide away from over-discussed themes.
-    
+
     Args:
         existing_comments (list): List of existing comments
         new_strategy (str): The proposed comment strategy
-        
+
     Returns:
         str: Additional guidance to avoid repetitive topics
     """
     if not existing_comments:
         return ""
-    
+
     # Extract topic mentions from existing comments
     topic_mentions = {}
     common_topics = [
-        "contemporary", "ballet", "jazz", "salsa", "ballroom", "breakdancing", 
-        "tap", "modern", "latin", "swing", "waltz", "tango", "krump", "popping", 
-        "locking", "waacking", "house", "voguing", "african", "bollywood"
+        "contemporary",
+        "ballet",
+        "jazz",
+        "salsa",
+        "ballroom",
+        "breakdancing",
+        "tap",
+        "modern",
+        "latin",
+        "swing",
+        "waltz",
+        "tango",
+        "krump",
+        "popping",
+        "locking",
+        "waacking",
+        "house",
+        "voguing",
+        "african",
+        "bollywood",
     ]
-    
+
     for comment in existing_comments:
         content_lower = comment.get("content", "").lower()
         for topic in common_topics:
             if topic in content_lower:
                 topic_mentions[topic] = topic_mentions.get(topic, 0) + 1
-    
+
     # Calculate over-mentioned topics (mentioned in >30% of comments)
     total_comments = len(existing_comments)
     threshold = max(2, total_comments * 0.3)  # At least 2, or 30% of comments
-    overmentioned = [topic for topic, count in topic_mentions.items() if count >= threshold]
-    
+    overmentioned = [
+        topic for topic, count in topic_mentions.items() if count >= threshold
+    ]
+
     # Build guidance string
     guidance_parts = []
-    
+
     if overmentioned:
-        guidance_parts.append(f"TOPIC DIVERSITY: Avoid over-discussing {', '.join(overmentioned[:3])}")
-        
+        guidance_parts.append(
+            f"TOPIC DIVERSITY: Avoid over-discussing {', '.join(overmentioned[:3])}"
+        )
+
         # Suggest alternative topics based on what hasn't been mentioned much
-        undermentioned = [topic for topic in common_topics 
-                         if topic_mentions.get(topic, 0) <= 1 and topic not in overmentioned]
-        
+        undermentioned = [
+            topic
+            for topic in common_topics
+            if topic_mentions.get(topic, 0) <= 1 and topic not in overmentioned
+        ]
+
         if undermentioned:
             suggested = random.sample(undermentioned, min(3, len(undermentioned)))
             guidance_parts.append(f"Consider exploring: {', '.join(suggested)}")
-    
+
     # Add variety in discussion approaches
     discussion_approaches = [
         "focus on technique and training methods",
-        "discuss cultural origins and history", 
+        "discuss cultural origins and history",
         "explore fusion possibilities between styles",
         "consider accessibility and learning curves",
         "examine performance contexts and venues",
         "analyze music compatibility and rhythm",
         "discuss physical and mental benefits",
-        "explore career and professional aspects"
+        "explore career and professional aspects",
     ]
-    
+
     if len(existing_comments) > 3:
         random_approach = random.choice(discussion_approaches)
         guidance_parts.append(f"Try to {random_approach}")
-    
+
     return " ".join(guidance_parts) + ". " if guidance_parts else ""
 
 
-def calculate_realistic_upvotes(comment_content, personality_archetype, conversation_context, reply_target=None):
+def calculate_realistic_upvotes(
+    comment_content, personality_archetype, conversation_context, reply_target=None
+):
     """
     Generate realistic upvote counts based on content quality, personality, and context.
-    
+
     Args:
         comment_content (str): The content of the comment
         personality_archetype (str): User's personality type
         conversation_context (dict): Current conversation state
         reply_target (dict): Comment being replied to, if any
-        
+
     Returns:
         int: Realistic upvote count
     """
     base_score = 5
-    
+
     # Content quality factors
     content_lower = comment_content.lower()
-    
+
     # Positive content factors
-    if any(word in content_lower for word in ["great", "awesome", "brilliant", "exactly", "love"]):
+    if any(
+        word in content_lower
+        for word in ["great", "awesome", "brilliant", "exactly", "love"]
+    ):
         base_score += 8
     if "?" in comment_content:  # Questions tend to get engagement
         base_score += 5
@@ -1435,7 +1603,7 @@ def calculate_realistic_upvotes(comment_content, personality_archetype, conversa
         base_score += 3
     if any(word in content_lower for word in ["experience", "personally", "when i"]):
         base_score += 4  # Personal experiences are valued
-    
+
     # Negative content factors
     if any(word in content_lower for word in ["wrong", "stupid", "terrible", "awful"]):
         base_score -= 8
@@ -1443,20 +1611,20 @@ def calculate_realistic_upvotes(comment_content, personality_archetype, conversa
         base_score -= 2
     if len(comment_content) < 20:  # Very short comments get less engagement
         base_score -= 3
-    
+
     # Personality factors
     personality_modifiers = {
-        "humorous": 1.4,     # Funny comments tend to get more upvotes
-        "empathetic": 1.2,   # Supportive comments are appreciated
-        "analytical": 1.1,   # Well-reasoned comments are valued
-        "social": 1.1,       # Engaging comments get positive response
-        "creative": 1.3,     # Creative comments stand out
-        "contrarian": 0.7,   # Disagreeing comments are more controversial
-        "reserved": 0.9      # Quiet comments might be overlooked
+        "humorous": 1.4,  # Funny comments tend to get more upvotes
+        "empathetic": 1.2,  # Supportive comments are appreciated
+        "analytical": 1.1,  # Well-reasoned comments are valued
+        "social": 1.1,  # Engaging comments get positive response
+        "creative": 1.3,  # Creative comments stand out
+        "contrarian": 0.7,  # Disagreeing comments are more controversial
+        "reserved": 0.9,  # Quiet comments might be overlooked
     }
-    
+
     base_score *= personality_modifiers.get(personality_archetype, 1.0)
-    
+
     # Context factors
     if conversation_context.get("peak_activity_detected"):
         base_score *= 1.3  # High activity means more visibility
@@ -1464,18 +1632,18 @@ def calculate_realistic_upvotes(comment_content, personality_archetype, conversa
         base_score *= 0.8  # Controversial threads are more divisive
     if conversation_context.get("dominant_sentiment") == "positive":
         base_score *= 1.1  # Positive threads boost all comments
-    
+
     # Reply vs top-level comment
     if reply_target:
         base_score *= 0.6  # Replies typically get fewer upvotes than top-level
         # But if replying to a highly upvoted comment, get some boost
         if reply_target.get("upvote_count", 0) > 20:
             base_score *= 1.2
-    
+
     # Add realistic variation with slight negative bias (more realistic)
     variation = random.randint(-int(base_score * 0.6), int(base_score * 0.4))
     final_score = int(base_score + variation)
-    
+
     # Realistic bounds: very few comments get extremely high or low scores
     return max(-15, min(100, final_score))
 
@@ -1825,15 +1993,17 @@ def analyze_conversation_context(comments, post_data):
     return context
 
 
-def get_varied_comment_structure(personality_archetype, conversation_context, content_type="comment"):
+def get_varied_comment_structure(
+    personality_archetype, conversation_context, content_type="comment"
+):
     """
     Return structure guidelines based on personality and context for varied comment patterns.
-    
+
     Args:
         personality_archetype (str): User's personality type
         conversation_context (dict): Current conversation analysis
         content_type (str): Type of content being generated
-        
+
     Returns:
         dict: Structure guidelines including length, style, and approach
     """
@@ -1842,127 +2012,127 @@ def get_varied_comment_structure(personality_archetype, conversation_context, co
             "short": {
                 "approach": "Direct disagreement (1-2 sentences)",
                 "template": "Quick correction or challenge",
-                "length_range": (20, 80)
+                "length_range": (20, 80),
             },
             "medium": {
-                "approach": "Reasoned counterargument with examples", 
+                "approach": "Reasoned counterargument with examples",
                 "template": "Structured disagreement with supporting evidence",
-                "length_range": (80, 200)
+                "length_range": (80, 200),
             },
             "long": {
                 "approach": "Detailed analysis of flaws in reasoning",
                 "template": "Comprehensive critique with multiple points",
-                "length_range": (200, 400)
-            }
+                "length_range": (200, 400),
+            },
         },
         "social": {
             "short": {
                 "approach": "Enthusiastic agreement or question",
                 "template": "Brief supportive response with emojis",
-                "length_range": (15, 60)
+                "length_range": (15, 60),
             },
             "medium": {
                 "approach": "Building on ideas with personal experience",
                 "template": "Engaging story or connection",
-                "length_range": (60, 150)
+                "length_range": (60, 150),
             },
             "long": {
                 "approach": "Comprehensive discussion with multiple perspectives",
                 "template": "Detailed exploration inviting further discussion",
-                "length_range": (150, 300)
-            }
+                "length_range": (150, 300),
+            },
         },
         "analytical": {
             "short": {
                 "approach": "Precise clarification or correction",
                 "template": "Focused technical point",
-                "length_range": (40, 100)
+                "length_range": (40, 100),
             },
             "medium": {
                 "approach": "Systematic breakdown of key factors",
                 "template": "Numbered list or structured analysis",
-                "length_range": (100, 250)
+                "length_range": (100, 250),
             },
             "long": {
                 "approach": "Comprehensive research-backed explanation",
                 "template": "Detailed methodology and evidence",
-                "length_range": (250, 500)
-            }
+                "length_range": (250, 500),
+            },
         },
         "creative": {
             "short": {
                 "approach": "Quick metaphor or unexpected connection",
                 "template": "Vivid analogy or creative observation",
-                "length_range": (25, 75)
+                "length_range": (25, 75),
             },
             "medium": {
                 "approach": "Extended creative comparison or story",
                 "template": "Narrative or imaginative explanation",
-                "length_range": (75, 180)
+                "length_range": (75, 180),
             },
             "long": {
                 "approach": "Elaborate creative framework or vision",
                 "template": "Detailed artistic or philosophical exploration",
-                "length_range": (180, 350)
-            }
+                "length_range": (180, 350),
+            },
         },
         "empathetic": {
             "short": {
                 "approach": "Brief validation or support",
                 "template": "Warm acknowledgment of feelings",
-                "length_range": (20, 70)
+                "length_range": (20, 70),
             },
             "medium": {
                 "approach": "Understanding multiple perspectives",
                 "template": "Balanced emotional response",
-                "length_range": (70, 160)
+                "length_range": (70, 160),
             },
             "long": {
                 "approach": "Deep emotional exploration and support",
                 "template": "Comprehensive empathetic analysis",
-                "length_range": (160, 320)
-            }
+                "length_range": (160, 320),
+            },
         },
         "humorous": {
             "short": {
                 "approach": "Quick joke or witty one-liner",
                 "template": "Punchy humor with emojis",
-                "length_range": (10, 50)
+                "length_range": (10, 50),
             },
             "medium": {
                 "approach": "Amusing observation or story",
                 "template": "Funny anecdote or extended joke",
-                "length_range": (50, 120)
+                "length_range": (50, 120),
             },
             "long": {
                 "approach": "Elaborate comedic scenario or satire",
                 "template": "Extended humorous commentary",
-                "length_range": (120, 250)
-            }
+                "length_range": (120, 250),
+            },
         },
         "reserved": {
             "short": {
                 "approach": "Concise, thoughtful observation",
                 "template": "Brief but insightful comment",
-                "length_range": (15, 50)
+                "length_range": (15, 50),
             },
             "medium": {
                 "approach": "Measured, well-considered response",
                 "template": "Thoughtful but not overwhelming",
-                "length_range": (50, 120)
+                "length_range": (50, 120),
             },
             "long": {
                 "approach": "Rare detailed explanation when passionate",
                 "template": "Unexpectedly comprehensive when engaged",
-                "length_range": (120, 200)
-            }
-        }
+                "length_range": (120, 200),
+            },
+        },
     }
-    
+
     # Default to balanced if personality not found
     if personality_archetype not in structures:
         personality_archetype = "social"
-    
+
     # Select length based on conversation momentum and context
     if conversation_context.get("conversation_momentum") == "fast":
         length_type = "short"
@@ -1972,7 +2142,7 @@ def get_varied_comment_structure(personality_archetype, conversation_context, co
         length_type = "long"
     else:
         length_type = random.choice(["short", "medium", "long"])
-    
+
     # Adjust for content type
     if content_type == "reply":
         # Replies tend to be shorter and more direct
@@ -1980,30 +2150,34 @@ def get_varied_comment_structure(personality_archetype, conversation_context, co
             length_type = "medium"
         elif length_type == "medium" and random.random() < 0.3:
             length_type = "short"
-    
+
     return structures[personality_archetype][length_type]
 
 
 def select_reply_target_with_depth_preference(comments, context, personality_archetype):
     """
     Enhanced reply targeting that creates deeper conversation threads when appropriate.
-    
+
     Args:
         comments (list): All available comments
         context (dict): Conversation context analysis
         personality_archetype (str): User's personality type
-        
+
     Returns:
         dict: Selected comment to reply to, or None for top-level comment
     """
     if not comments:
         return None
-    
+
     # In active discussions, prefer creating deeper threads
     if len(comments) > 2:  # Start threading with fewer comments
-        existing_replies = [c for c in comments if c.get("parent_id") and c.get("parent_id") != ""]
-        top_level_comments = [c for c in comments if not c.get("parent_id") or c.get("parent_id") == ""]
-        
+        existing_replies = [
+            c for c in comments if c.get("parent_id") and c.get("parent_id") != ""
+        ]
+        top_level_comments = [
+            c for c in comments if not c.get("parent_id") or c.get("parent_id") == ""
+        ]
+
         # If we have existing replies, 60% chance to reply to them (continue threads)
         if existing_replies and random.random() < 0.6:
             # Calculate depth for each reply to avoid going too deep
@@ -2012,14 +2186,14 @@ def select_reply_target_with_depth_preference(comments, context, personality_arc
                 depth = calculate_comment_depth(reply, comments)
                 if depth <= 2:  # Don't go deeper than 3 levels
                     shallow_replies.append(reply)
-            
+
             if shallow_replies:
                 return random.choice(shallow_replies)
-        
+
         # If no existing replies or we didn't choose them, 50% chance to reply to top-level comments
         elif top_level_comments and random.random() < 0.5:
             return random.choice(top_level_comments)
-    
+
     # Otherwise use the original enhanced targeting
     return select_reply_target(comments, context, personality_archetype)
 
@@ -2027,29 +2201,31 @@ def select_reply_target_with_depth_preference(comments, context, personality_arc
 def calculate_comment_depth(comment, all_comments):
     """
     Calculate how deep a comment is in the reply chain.
-    
+
     Args:
         comment (dict): The comment to calculate depth for
         all_comments (list): All comments in the thread
-        
+
     Returns:
         int: Depth level (0 = top-level, 1 = first reply, etc.)
     """
     depth = 0
     current_parent = comment.get("parent_id")
-    
+
     while current_parent and current_parent != "":
         depth += 1
-        parent_comment = next((c for c in all_comments if c.get("id") == current_parent), None)
+        parent_comment = next(
+            (c for c in all_comments if c.get("id") == current_parent), None
+        )
         if parent_comment:
             current_parent = parent_comment.get("parent_id")
         else:
             break
-        
+
         # Safety check to prevent infinite loops
         if depth > 10:
             break
-            
+
     return depth
 
 
@@ -2290,23 +2466,23 @@ def create_comment(post_id: str = "") -> dict:
     comment_data = parse_data(api_response, "comment")
     comment_data["post_id"] = post_id
     comment_data["model"] = model
-    
+
     # Set parent_id if this is a reply
     if reply_target:
         comment_data["parent_id"] = reply_target.get("id")
     else:
         comment_data["parent_id"] = ""
-    
+
     # Set the user for the comment
     comment_data["user"] = user["username"]
-    
+
     # Use realistic upvote calculation instead of random
     if "upvote_count" not in comment_data or not comment_data["upvote_count"]:
         realistic_upvotes = calculate_realistic_upvotes(
             comment_data.get("content", ""),
             personality_archetype,
             conversation_context,
-            reply_target
+            reply_target,
         )
         comment_data["upvote_count"] = realistic_upvotes
     else:
