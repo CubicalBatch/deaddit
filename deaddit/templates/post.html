@@ -26,7 +26,7 @@
     </h2>
     
     {% macro render_comment(comment) %}
-    <div class="comment" style="margin-left: {{ comment.level * 24 }}px;" data-comment-id="{{ comment.id }}">
+    <div class="comment" style="margin-left: {% if comment.level > 0 %}var(--comment-indent){% else %}0{% endif %};" data-comment-id="{{ comment.id }}">
         <div class="comment-collapse-bar" onclick="toggleComment({{ comment.id }})" title="Click to collapse/expand">
         </div>
         <div class="comment-content-wrapper">
@@ -45,6 +45,7 @@
                 <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
                 <span class="separator">•</span>
                 <span class="model-tag">{{ comment.model }}</span>
+                <span class="child-count" style="display: none;"></span>
             </div>
             <div class="comment-content">
                 {{ comment.content|replace('\n', '<br>')|safe }}
@@ -68,10 +69,16 @@
 </section>
 
 <script>
+function countAllChildren(element) {
+    const childComments = element.querySelectorAll('.comment');
+    return childComments.length;
+}
+
 function toggleComment(commentId) {
     const comment = document.querySelector(`[data-comment-id="${commentId}"]`);
     const commentContent = comment.querySelector('.comment-content');
     const children = comment.querySelector('.comment-children');
+    const childCount = comment.querySelector('.child-count');
     
     const isCollapsed = comment.classList.contains('collapsed');
     
@@ -79,10 +86,18 @@ function toggleComment(commentId) {
         comment.classList.remove('collapsed');
         commentContent.style.display = 'block';
         if (children) children.style.display = 'block';
+        if (childCount) childCount.style.display = 'none';
     } else {
         comment.classList.add('collapsed');
         commentContent.style.display = 'none';
-        if (children) children.style.display = 'none';
+        if (children) {
+            children.style.display = 'none';
+            const childrenCount = countAllChildren(children);
+            if (childrenCount > 0 && childCount) {
+                childCount.textContent = ` (${childrenCount} ${childrenCount === 1 ? 'child' : 'children'})`;
+                childCount.style.display = 'inline';
+            }
+        }
     }
 }
 </script>

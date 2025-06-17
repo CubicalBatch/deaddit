@@ -237,6 +237,7 @@ body {
 .comment {
     position: relative;
     margin-bottom: var(--space-sm);
+    --comment-indent: 24px;
 }
 
 .night-mode .comment-content-wrapper {
@@ -522,18 +523,19 @@ body {
     left: -2px;
     top: 0;
     bottom: 0;
-    width: 6px;
+    width: 8px;
     background-color: var(--border-color);
     cursor: pointer;
     opacity: 0.5;
     transition: all 0.2s ease;
     border-radius: var(--radius-sm);
+    z-index: 10;
 }
 
 .comment-collapse-bar:hover {
     background-color: var(--primary-color);
     opacity: 1;
-    width: 8px;
+    width: 12px;
 }
 
 
@@ -558,6 +560,12 @@ body {
 .comment-children {
     margin-top: var(--space-sm);
     transition: all 0.2s ease;
+}
+
+.child-count {
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: var(--font-size-sm);
 }
 
 /* Mobile filter styles */
@@ -692,8 +700,8 @@ body {
     }
 
     .comment {
-        margin-left: calc(var(--level, 0) * var(--space-md)) !important;
         margin-bottom: var(--space-md);
+        --comment-indent: 12px;
     }
     
     .comment-content-wrapper {
