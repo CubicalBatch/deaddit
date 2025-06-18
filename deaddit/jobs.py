@@ -859,6 +859,8 @@ The post should:
 - Have engaging content (2-4 paragraphs)
 - Feel natural and realistic
 - Use your writing style
+- Use \\n for line breaks to separate paragraphs and create proper formatting
+- Structure your content with paragraph breaks for better readability
 
 Generate realistic upvote count (typically 5-150 for most posts, rarely higher).
 
@@ -868,7 +870,7 @@ Provide your response as JSON:
 ```json
 {{
     "title": "Your post title",
-    "content": "Your post content...",
+    "content": "Your first paragraph...\\n\\nSecond paragraph with more details...\\n\\nOptional third paragraph if needed.",
     "upvote_count": 42
 }}
 ```
@@ -913,6 +915,8 @@ def _generate_comment_data(
     """Generate comment data using OpenAI API."""
     import random
 
+    from loguru import logger
+
     from deaddit.models import Post, Subdeaddit, User
 
     # Get a random user to be the commenter
@@ -941,6 +945,44 @@ def _generate_comment_data(
             raise Exception("No posts available to comment on")
         post = random.choice(posts)
 
+    # Determine if this should be a reply (30% chance, same as CLI loader)
+    # Use API to get existing comments to ensure proper context
+    import requests
+    try:
+        response = requests.get(
+            f"{get_api_base_url()}/api/post/{post.id}",
+            headers=get_api_headers(),
+            timeout=30
+        )
+        if response.status_code == 200:
+            post_data = response.json()
+            # Flatten comment tree to get all comments
+            def flatten_comments(comments):
+                all_comments = []
+                for comment in comments:
+                    all_comments.append(comment)
+                    if comment.get('replies'):
+                        all_comments.extend(flatten_comments(comment['replies']))
+                return all_comments
+
+            existing_comments = flatten_comments(post_data.get('comments', []))
+            logger.info(f"Checking for replies: Found {len(existing_comments)} existing comments for post {post.id}")
+        else:
+            logger.warning(f"Failed to fetch comments for post {post.id}, creating top-level comment")
+            existing_comments = []
+    except Exception as e:
+        logger.warning(f"Error fetching comments for post {post.id}: {e}, creating top-level comment")
+        existing_comments = []
+
+    parent_id = None
+
+    if existing_comments and random.random() < 0.3:  # 30% chance to reply to existing comment
+        parent_comment = random.choice(existing_comments)
+        parent_id = parent_comment.get('id')
+        logger.info(f"Selected parent comment ID {parent_id} by {parent_comment.get('user', 'unknown')}")
+    else:
+        logger.info(f"Creating top-level comment (no parent selected, {len(existing_comments)} comments available)")
+
     system_prompt = f"""You are {author.username}, a {author.age}-year-old {author.gender.lower()} who works as a {author.occupation}.
 
 Your personality: {author.bio}
@@ -949,7 +991,51 @@ Your interests: {", ".join(author.get_interests() if hasattr(author, "get_intere
 
 You are commenting on a post in /r/{post.subdeaddit.name}."""
 
-    prompt = f"""You're reading this post titled "{post.title}" in /r/{post.subdeaddit.name}:
+    # Prepare the prompt based on whether this is a reply or top-level comment
+    if parent_id:
+        # Find the parent comment data from our existing_comments list
+        parent_comment_data = next(
+            (c for c in existing_comments if c.get('id') == parent_id), None
+        )
+        if not parent_comment_data:
+            logger.warning(f"Could not find parent comment {parent_id}, creating top-level comment")
+            parent_id = None
+
+    if parent_id and parent_comment_data:
+        # Create reply prompt
+        prompt = f"""You're reading this post titled "{post.title}" in /r/{post.subdeaddit.name}:
+
+{post.content}
+
+You're replying to this comment by {parent_comment_data.get('user', 'unknown')}:
+"{parent_comment_data.get('content', '')}"
+
+Write a reply that:
+- Reflects your personality and writing style
+- Responds to the specific comment above
+- Feels natural and authentic
+- Is 1-3 sentences (keep it concise)
+- Fits the community tone
+- Use \\n for line breaks when you want to separate paragraphs or create emphasis
+- Feel free to use multiple paragraphs if it helps express your thoughts clearly
+
+Generate a realistic upvote count for your reply (typically 1-50, sometimes negative).
+
+Provide your response as JSON:
+```json
+{{
+    "content": "Your reply content...\\n\\nSecond paragraph if needed.",
+    "upvote_count": 12,
+    "user": "{author.username}",
+    "post_id": {post.id},
+    "parent_id": {parent_id}
+}}
+```
+
+Write your reply now."""
+    else:
+        # Create top-level comment prompt
+        prompt = f"""You're reading this post titled "{post.title}" in /r/{post.subdeaddit.name}:
 
 {post.content}
 
@@ -959,17 +1045,19 @@ Write a comment response that:
 - Feels natural and authentic
 - Is 1-3 sentences (keep it concise)
 - Fits the community tone
+- Use \\n for line breaks when you want to separate paragraphs or create emphasis
+- Feel free to use multiple paragraphs if it helps express your thoughts clearly
 
 Generate a realistic upvote count for your comment (typically 1-50, sometimes negative).
 
 Provide your response as JSON:
 ```json
 {{
-    "content": "Your comment content...",
+    "content": "Your comment content...\\n\\nSecond paragraph if needed.",
     "upvote_count": 12,
     "user": "{author.username}",
     "post_id": {post.id},
-    "parent_id": ""
+    "parent_id": null
 }}
 ```
 
@@ -983,8 +1071,10 @@ Write your comment now."""
         # Ensure required fields are set correctly
         comment_data["user"] = author.username
         comment_data["post_id"] = post.id
-        comment_data["parent_id"] = ""  # Top-level comment
+        comment_data["parent_id"] = parent_id
         comment_data["model"] = used_model
+
+        logger.info(f"FINAL COMMENT DATA: parent_id={parent_id}, user={author.username}, post_id={post.id}")
 
         # Store API request/response for debugging
         comment_data["_api_request"] = {
