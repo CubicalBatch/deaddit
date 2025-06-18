@@ -61,17 +61,21 @@
                             <div class="mb-3">
                                 <label for="openai_model" class="form-label">Default Model</label>
                                 <div class="input-group">
-                                    <select class="form-select" id="openai_model" name="openai_model">
+                                    <select class="form-select" id="openai_model" name="openai_model" 
+                                            data-placeholder="Search or type model name...">
                                         <option value="">Select a model...</option>
                                         {% if config.openai_model != 'Not set' %}
                                         <option value="{{ config.openai_model }}" selected>{{ config.openai_model }}</option>
                                         {% endif %}
                                     </select>
-                                    <button type="button" class="btn btn-outline-secondary" onclick="loadAvailableModels(this)">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="refreshModels(this)">
                                         <i class="bi bi-arrow-clockwise"></i>
                                     </button>
                                 </div>
-                                <div class="form-text">Default model name for content generation</div>
+                                <div class="form-text">
+                                    Default model name for content generation. 
+                                    <span id="model-cache-info" class="text-muted"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -553,7 +557,63 @@ function displayConnectionTestResult(data) {
     resultDiv.style.display = 'block';
 }
 
-function loadAvailableModels(buttonElement) {
+async function loadEndpointConfig(apiUrl) {
+    if (!apiUrl) return;
+    
+    try {
+        const encodedUrl = btoa(apiUrl);
+        const response = await fetch(`/admin/api/endpoint-config/${encodedUrl}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            // Populate models dropdown
+            if (data.models && data.models.length > 0) {
+                populateModelsDropdown(data.models, true);
+                updateModelCacheInfo(data);
+            } else {
+                // Clear models if none cached
+                populateModelsDropdown([], true);
+                updateModelCacheInfo({});
+            }
+            
+            // Set the default model for this endpoint
+            if (data.default_model) {
+                $('#openai_model').val(data.default_model).trigger('change');
+                console.log(`Loaded default model '${data.default_model}' for ${apiUrl}`);
+            } else {
+                $('#openai_model').val('').trigger('change');
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load endpoint config:', error);
+    }
+}
+
+async function saveEndpointDefaultModel(apiUrl, modelName) {
+    if (!apiUrl || !modelName) return;
+    
+    try {
+        const response = await fetch('/admin/api/endpoint-config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                api_url: apiUrl,
+                default_model: modelName
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            console.log(`Saved default model '${modelName}' for ${apiUrl}`);
+        } else {
+            console.warn('Failed to save default model:', data.message);
+        }
+    } catch (error) {
+        console.warn('Error saving default model:', error);
+    }
+}
+
+async function refreshModels(buttonElement) {
     const apiUrl = document.getElementById('openai_api_url').value;
     const apiKey = document.getElementById('openai_key').value;
     
@@ -562,14 +622,12 @@ function loadAvailableModels(buttonElement) {
         return;
     }
     
-    // Allow loading models with masked key (will use saved environment variable)
     if (!apiKey) {
         showAlert('<i class="bi bi-exclamation-triangle"></i> Please enter an API key first', 'alert-warning');
         return;
     }
     
-    // Get button element - either from parameter or find the refresh button
-    const button = buttonElement || document.querySelector('button[onclick*="loadAvailableModels"]');
+    const button = buttonElement || document.querySelector('button[onclick*="refreshModels"]');
     if (!button) {
         console.error('Could not find refresh button');
         return;
@@ -583,55 +641,74 @@ function loadAvailableModels(buttonElement) {
     }
     button.disabled = true;
     
-    const data = {
-        api_url: apiUrl,
-        api_key: apiKey
-    };
-    
-    fetch('/admin/api/load-models', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        const response = await fetch('/admin/api/load-models', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                api_url: apiUrl,
+                api_key: apiKey
+            })
+        });
+        
+        const data = await response.json();
+        
         if (data.success) {
-            populateModelsDropdown(data.models);
-            showAlert('<i class="bi bi-check-circle"></i> Loaded ' + data.models.length + ' models', 'alert-success');
+            populateModelsDropdown(data.models, true);
+            const alertType = data.cached ? 'alert-warning' : 'alert-success';
+            const icon = data.cached ? 'exclamation-triangle' : 'check-circle';
+            showAlert(`<i class="bi bi-${icon}"></i> ${data.message}`, alertType);
+            updateModelCacheInfo(data);
         } else {
             showAlert('<i class="bi bi-x-circle"></i> Failed to load models: ' + data.message, 'alert-danger');
         }
-    })
-    .catch(error => {
-        showAlert('<i class="bi bi-x-circle"></i> Error loading models: ' + error.message, 'alert-danger');
-    })
-    .finally(() => {
+    } catch (error) {
+        showAlert('<i class="bi bi-x-circle"></i> Network error - trying cached models', 'alert-warning');
+        await loadCachedModels(apiUrl);
+    } finally {
         if (icon) {
             icon.className = originalIcon;
         }
         button.disabled = false;
-    });
+    }
 }
 
-function populateModelsDropdown(models) {
-    const dropdown = document.getElementById('openai_model');
-    const currentValue = dropdown.value;
+function populateModelsDropdown(models, clearFirst = false) {
+    const select = $('#openai_model');
+    const currentValue = select.val();
     
-    // Clear existing options except the first one
-    dropdown.innerHTML = '<option value="">Select a model...</option>';
+    if (clearFirst) {
+        select.empty().append('<option value="">Select a model...</option>');
+    }
     
     if (models && models.length > 0) {
         models.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model;
-            option.textContent = model;
-            if (model === currentValue) {
-                option.selected = true;
+            // Avoid duplicates
+            if (!select.find(`option[value="${model}"]`).length) {
+                select.append(`<option value="${model}">${model}</option>`);
             }
-            dropdown.appendChild(option);
         });
+    }
+    
+    // Restore previous selection if it still exists
+    if (currentValue && select.find(`option[value="${currentValue}"]`).length) {
+        select.val(currentValue);
+    }
+    
+    select.trigger('change');
+}
+
+function updateModelCacheInfo(data) {
+    const info = document.getElementById('model-cache-info');
+    if (data.cached && data.last_fetched) {
+        const date = new Date(data.last_fetched).toLocaleString();
+        info.textContent = `(Cached models from ${date})`;
+    } else if (data.models && data.models.length > 0) {
+        info.textContent = `(${data.models.length} models loaded)`;
+    } else {
+        info.textContent = '';
     }
 }
 
@@ -777,5 +854,66 @@ function loadApiKeyForEndpoint(endpointUrl) {
         console.error('Error loading API key for endpoint:', error);
     });
 }
+
+// Initialize Select2 and endpoint-specific model management
+$(document).ready(function() {
+    // Initialize Select2 for model dropdown
+    $('#openai_model').select2({
+        tags: true,
+        placeholder: "Search or type model name...",
+        allowClear: true,
+        width: '100%',
+        theme: 'bootstrap',
+        createTag: function (params) {
+            const term = $.trim(params.term);
+            if (term === '') {
+                return null;
+            }
+            return {
+                id: term,
+                text: term,
+                newTag: true
+            };
+        }
+    });
+    
+    // Auto-save default model when selection changes
+    $('#openai_model').on('change', function() {
+        const apiUrl = document.getElementById('openai_api_url').value;
+        const selectedModel = $(this).val();
+        
+        if (apiUrl && selectedModel) {
+            saveEndpointDefaultModel(apiUrl, selectedModel);
+        }
+    });
+    
+    // Load endpoint config when API URL is set on page load
+    const apiUrl = document.getElementById('openai_api_url').value;
+    if (apiUrl) {
+        loadEndpointConfig(apiUrl);
+    }
+    
+    // Load endpoint config when API URL changes
+    $('#openai_api_url').on('blur', function() {
+        const url = this.value;
+        if (url) {
+            loadEndpointConfig(url);
+        }
+    });
+    
+    // Also trigger on preset changes
+    $('#api_preset').on('change', function() {
+        // Small delay to allow the URL to be set by setPresetUrl()
+        setTimeout(() => {
+            const url = document.getElementById('openai_api_url').value;
+            if (url) {
+                loadEndpointConfig(url);
+            }
+        }, 100);
+    });
+    
+    // Set current preset on page load
+    setCurrentPreset();
+});
 </script>
 {% endblock %}
