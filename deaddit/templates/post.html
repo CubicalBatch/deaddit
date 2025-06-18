@@ -14,7 +14,7 @@
             <span class="model-tag">{{ post.model }}</span>
         </div>
         <div class="post-body">
-            {{ post.content|safe }}
+            {{ post.content|replace('\n', '<br>')|safe }}
         </div>
     </div>
 </article>
