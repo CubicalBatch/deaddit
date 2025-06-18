@@ -1243,7 +1243,9 @@ def get_enhanced_comment_prompt(
 
     - Write your comment in a style consistent with the following user profile.
     - You should not reference your profile explicitly, but write authentically as this person.
-    - IMPORTANT: DO NOT start with clichéd phrases like "I feel you", "I totally get you", "I'm with you", etc.
+    - IMPORTANT: DO NOT start with clichéd phrases like "I feel you", "I totally get you", "I'm with you", "OMG yes!", "This!", etc.
+    - VARY YOUR COMMENT STRUCTURE: Don't follow the same pattern as other comments. Mix up your approach - sometimes be direct, sometimes tell a story, sometimes ask questions, sometimes be analytical.
+    - VARY YOUR TONE AND LENGTH: Sometimes be brief and punchy, other times more detailed and thoughtful. Match your personality but don't fall into repetitive patterns.
     - Jump directly into your main point or reaction with natural, varied openings.
 
     USER PROFILE:
@@ -1315,7 +1317,7 @@ def get_enhanced_comment_prompt(
 
     # Add topic awareness to avoid repetition
     topic_guidance = get_topic_awareness_for_prompt(
-        existing_comments, diversity_instructions
+        existing_comments, diversity_instructions, post_data.get("subdeaddit")
     )
 
     # Enhanced diversity instruction that considers conversation context
@@ -1481,56 +1483,29 @@ def get_comment_prompt(
     return base_prompt
 
 
-def get_topic_awareness_for_prompt(existing_comments, new_strategy):
+def get_topic_awareness_for_prompt(existing_comments, new_strategy, subdeaddit_name=None):
     """
-    Analyze existing topics and guide away from over-discussed themes.
+    Analyze existing topics dynamically and guide away from over-discussed themes.
 
     Args:
         existing_comments (list): List of existing comments
         new_strategy (str): The proposed comment strategy
+        subdeaddit_name (str): Name of the subdeaddit (unused - kept for compatibility)
 
     Returns:
         str: Additional guidance to avoid repetitive topics
     """
-    if not existing_comments:
+    if not existing_comments or len(existing_comments) < 3:
         return ""
 
-    # Extract topic mentions from existing comments
-    topic_mentions = {}
-    common_topics = [
-        "contemporary",
-        "ballet",
-        "jazz",
-        "salsa",
-        "ballroom",
-        "breakdancing",
-        "tap",
-        "modern",
-        "latin",
-        "swing",
-        "waltz",
-        "tango",
-        "krump",
-        "popping",
-        "locking",
-        "waacking",
-        "house",
-        "voguing",
-        "african",
-        "bollywood",
-    ]
+    # Dynamically extract frequently mentioned key terms/phrases from existing comments
+    key_terms = extract_frequent_terms(existing_comments)
 
-    for comment in existing_comments:
-        content_lower = comment.get("content", "").lower()
-        for topic in common_topics:
-            if topic in content_lower:
-                topic_mentions[topic] = topic_mentions.get(topic, 0) + 1
-
-    # Calculate over-mentioned topics (mentioned in >30% of comments)
+    # Calculate over-mentioned terms (mentioned in >40% of comments)
     total_comments = len(existing_comments)
-    threshold = max(2, total_comments * 0.3)  # At least 2, or 30% of comments
+    threshold = max(2, total_comments * 0.4)  # At least 2, or 40% of comments
     overmentioned = [
-        topic for topic, count in topic_mentions.items() if count >= threshold
+        term for term, count in key_terms.items() if count >= threshold
     ]
 
     # Build guidance string
@@ -1538,37 +1513,70 @@ def get_topic_awareness_for_prompt(existing_comments, new_strategy):
 
     if overmentioned:
         guidance_parts.append(
-            f"TOPIC DIVERSITY: Avoid over-discussing {', '.join(overmentioned[:3])}"
+            f"TOPIC DIVERSITY: Avoid overusing these frequently mentioned terms/phrases: {', '.join(overmentioned[:3])}"
         )
 
-        # Suggest alternative topics based on what hasn't been mentioned much
-        undermentioned = [
-            topic
-            for topic in common_topics
-            if topic_mentions.get(topic, 0) <= 1 and topic not in overmentioned
-        ]
-
-        if undermentioned:
-            suggested = random.sample(undermentioned, min(3, len(undermentioned)))
-            guidance_parts.append(f"Consider exploring: {', '.join(suggested)}")
-
-    # Add variety in discussion approaches
+    # Add universal variety approaches
     discussion_approaches = [
-        "focus on technique and training methods",
-        "discuss cultural origins and history",
-        "explore fusion possibilities between styles",
-        "consider accessibility and learning curves",
-        "examine performance contexts and venues",
-        "analyze music compatibility and rhythm",
-        "discuss physical and mental benefits",
-        "explore career and professional aspects",
+        "share a specific personal experience or anecdote",
+        "ask a thoughtful question to engage others",
+        "provide a practical tip or actionable advice",
+        "present a contrasting viewpoint respectfully",
+        "relate to current trends or recent developments",
+        "explore a less-discussed aspect of the topic",
+        "connect to broader implications or consequences",
+        "offer a creative solution or alternative approach"
     ]
 
-    if len(existing_comments) > 3:
+    if len(existing_comments) > 5:
         random_approach = random.choice(discussion_approaches)
         guidance_parts.append(f"Try to {random_approach}")
 
     return " ".join(guidance_parts) + ". " if guidance_parts else ""
+
+
+def extract_frequent_terms(comments):
+    """
+    Extract frequently mentioned terms from comments.
+
+    Args:
+        comments (list): List of comment dictionaries
+
+    Returns:
+        dict: Dictionary of terms and their frequency counts
+    """
+    import re
+    from collections import Counter
+
+    # Combine all comment content
+    all_text = " ".join([comment.get("content", "") for comment in comments]).lower()
+
+    # Extract meaningful terms (2-20 characters, excluding common words)
+    terms = re.findall(r'\b[a-zA-Z]{2,20}\b', all_text)
+
+    # Filter out common stop words and very short terms
+    stop_words = {
+        'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+        'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above',
+        'below', 'between', 'among', 'this', 'that', 'these', 'those', 'is', 'are', 'was',
+        'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
+        'would', 'could', 'should', 'may', 'might', 'must', 'can', 'its', 'it', 'you',
+        'your', 'they', 'them', 'their', 'we', 'our', 'us', 'my', 'me', 'him', 'her',
+        'his', 'she', 'he', 'all', 'any', 'some', 'each', 'every', 'no', 'not', 'very',
+        'so', 'just', 'now', 'how', 'what', 'when', 'where', 'why', 'who', 'which',
+        'than', 'too', 'also', 'more', 'most', 'much', 'many', 'get', 'got', 'like',
+        'think', 'know', 'see', 'want', 'need', 'make', 'take', 'come', 'go', 'say',
+        'said', 'tell', 'look', 'feel', 'try', 'use', 'work', 'way', 'time', 'good',
+        'great', 'nice', 'bad', 'right', 'wrong', 'yes', 'yeah', 'omg', 'lol'
+    }
+
+    meaningful_terms = [term for term in terms if term not in stop_words and len(term) > 2]
+
+    # Count frequency and return top terms
+    term_counts = Counter(meaningful_terms)
+
+    # Only return terms mentioned at least twice
+    return {term: count for term, count in term_counts.items() if count >= 2}
 
 
 def calculate_realistic_upvotes(
