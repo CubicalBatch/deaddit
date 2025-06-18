@@ -157,6 +157,92 @@ class GenerationTemplate(db.Model):
         }
 
 
+class ApiModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    api_url = db.Column(db.String(255), nullable=False, index=True)
+    model_name = db.Column(db.String(100), nullable=False)
+    last_fetched = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+
+    __table_args__ = (db.UniqueConstraint('api_url', 'model_name'),)
+
+    @staticmethod
+    def get_models_for_api(api_url):
+        """Get all active models for a specific API endpoint."""
+        return ApiModel.query.filter_by(api_url=api_url, is_active=True).all()
+
+    @staticmethod
+    def update_models_for_api(api_url, model_names):
+        """Update the models for a specific API endpoint."""
+        # Mark all existing models as inactive
+        ApiModel.query.filter_by(api_url=api_url).update({'is_active': False})
+
+        # Add or reactivate models
+        for model_name in model_names:
+            existing = ApiModel.query.filter_by(api_url=api_url, model_name=model_name).first()
+            if existing:
+                existing.is_active = True
+                existing.last_fetched = datetime.utcnow()
+            else:
+                new_model = ApiModel(
+                    api_url=api_url,
+                    model_name=model_name,
+                    last_fetched=datetime.utcnow(),
+                    is_active=True
+                )
+                db.session.add(new_model)
+
+        db.session.commit()
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'api_url': self.api_url,
+            'model_name': self.model_name,
+            'last_fetched': self.last_fetched.isoformat() if self.last_fetched else None,
+            'is_active': self.is_active
+        }
+
+
+class ApiEndpointConfig(db.Model):
+    """Store configuration settings per API endpoint."""
+    id = db.Column(db.Integer, primary_key=True)
+    api_url = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    default_model = db.Column(db.String(100))
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @staticmethod
+    def get_default_model_for_endpoint(api_url):
+        """Get the default model for a specific API endpoint."""
+        config = ApiEndpointConfig.query.filter_by(api_url=api_url).first()
+        return config.default_model if config else None
+
+    @staticmethod
+    def set_default_model_for_endpoint(api_url, model_name):
+        """Set the default model for a specific API endpoint."""
+        config = ApiEndpointConfig.query.filter_by(api_url=api_url).first()
+        if config:
+            config.default_model = model_name
+            config.last_updated = datetime.utcnow()
+        else:
+            config = ApiEndpointConfig(
+                api_url=api_url,
+                default_model=model_name,
+                last_updated=datetime.utcnow()
+            )
+            db.session.add(config)
+        db.session.commit()
+        return config
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'api_url': self.api_url,
+            'default_model': self.default_model,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None
+        }
+
+
 class Setting(db.Model):
     key = db.Column(db.String(100), primary_key=True)
     value = db.Column(db.Text)

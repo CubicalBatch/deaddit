@@ -2190,7 +2190,12 @@ def select_reply_target_with_depth_preference(comments, context, personality_arc
             if shallow_replies:
                 return random.choice(shallow_replies)
 
-        # If no existing replies or we didn't choose them, 50% chance to reply to top-level comments
+        # If no existing replies but many comments, aggressively create replies (80% chance)
+        if not existing_replies and len(comments) > 10 and top_level_comments:
+            if random.random() < 0.8:
+                return random.choice(top_level_comments)
+
+        # Otherwise, 50% chance to reply to top-level comments
         elif top_level_comments and random.random() < 0.5:
             return random.choice(top_level_comments)
 
@@ -2470,8 +2475,9 @@ def create_comment(post_id: str = "") -> dict:
     # Set parent_id if this is a reply
     if reply_target:
         comment_data["parent_id"] = reply_target.get("id")
+        logger.info(f"Setting parent_id to: {comment_data['parent_id']}")
     else:
-        comment_data["parent_id"] = ""
+        comment_data["parent_id"] = None
 
     # Set the user for the comment
     comment_data["user"] = user["username"]
