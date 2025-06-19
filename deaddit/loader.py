@@ -11,17 +11,8 @@ from loguru import logger
 
 from .config import Config
 
-# Default models - can be overridden with OPENAI_MODEL config setting
-DEFAULT_MODELS = [
-    Config.get("OPENAI_MODEL", "llama3"),
-    "gpt-3.5-turbo",
-    "gpt-4",
-    "claude-3-haiku",
-    "mistral-7b",
-]
-
 # Get models from config or use defaults
-MODELS = Config.get("MODELS", "").split(",") if Config.get("MODELS") else DEFAULT_MODELS
+MODELS = Config.get("MODELS", "").split(",") if Config.get("MODELS") else [""]
 # Remove empty strings and strip whitespace
 MODELS = [model.strip() for model in MODELS if model.strip()]
 
@@ -141,250 +132,6 @@ def get_dynamic_temperature(user_personality_traits, content_type="post"):
 
     # Clamp to valid range
     return max(0.3, min(1.3, round(base_temp, 2)))
-
-
-def create_mock_response(
-    prompt: str, content_type: str, user_personality_traits=None
-) -> tuple:
-    """
-    Generate realistic mock responses for testing when API is unavailable.
-
-    Args:
-        prompt (str): The user prompt
-        content_type (str): Type of content being generated
-        user_personality_traits (list): User personality traits for response variation
-
-    Returns:
-        tuple: (mock_response_object, mock_model_name)
-    """
-    import json
-    from types import SimpleNamespace
-
-    # Personality-driven response templates
-    mock_responses = {
-        "comment": {
-            "contrarian": [
-                {
-                    "content": "I have to respectfully disagree here. The evidence suggests otherwise because...",
-                    "upvote_count": -2,
-                    "parent_id": "",
-                },
-                {
-                    "content": "This is a common misconception. What you're missing is...",
-                    "upvote_count": 5,
-                    "parent_id": "",
-                },
-                {
-                    "content": "Actually, that's not quite right. Let me explain why...",
-                    "upvote_count": 12,
-                    "parent_id": "",
-                },
-            ],
-            "social": [
-                {
-                    "content": "This is such a great discussion! I love how everyone is sharing their perspectives 💃",
-                    "upvote_count": 25,
-                    "parent_id": "",
-                },
-                {
-                    "content": "You all are making excellent points! Here's what I think...",
-                    "upvote_count": 18,
-                    "parent_id": "",
-                },
-                {
-                    "content": "Thanks for starting this conversation! It really got me thinking about...",
-                    "upvote_count": 15,
-                    "parent_id": "",
-                },
-            ],
-            "analytical": [
-                {
-                    "content": "Looking at this from a technical perspective, there are several factors to consider: 1) technique complexity, 2) adaptability across genres, 3) cultural impact...",
-                    "upvote_count": 45,
-                    "parent_id": "",
-                },
-                {
-                    "content": "The data actually shows that versatility can be measured across multiple dimensions...",
-                    "upvote_count": 32,
-                    "parent_id": "",
-                },
-                {
-                    "content": "If we break this down systematically, we need to define what 'versatile' means in this context...",
-                    "upvote_count": 28,
-                    "parent_id": "",
-                },
-            ],
-            "creative": [
-                {
-                    "content": "Think of dance styles like colors on a palette - Hip Hop might be bold red, but Contemporary is like a whole rainbow that can blend into anything!",
-                    "upvote_count": 35,
-                    "parent_id": "",
-                },
-                {
-                    "content": "It's like comparing a Swiss Army knife to a paintbrush - both versatile, but in completely different ways.",
-                    "upvote_count": 22,
-                    "parent_id": "",
-                },
-                {
-                    "content": "Imagine if dance styles were languages - some are great for poetry, others for technical manuals...",
-                    "upvote_count": 19,
-                    "parent_id": "",
-                },
-            ],
-            "empathetic": [
-                {
-                    "content": "I can really understand why you feel so passionate about Hip Hop. For me, dance has always been about personal expression, and different styles speak to different parts of our souls.",
-                    "upvote_count": 31,
-                    "parent_id": "",
-                },
-                {
-                    "content": "This is such a personal topic for many of us. I think we all connect with different styles based on our experiences...",
-                    "upvote_count": 24,
-                    "parent_id": "",
-                },
-                {
-                    "content": "It's beautiful how dance can mean so many different things to different people. Your passion really comes through!",
-                    "upvote_count": 17,
-                    "parent_id": "",
-                },
-            ],
-            "humorous": [
-                {
-                    "content": "Plot twist: What if the most versatile dance style is actually the one where you're alone in your kitchen at 2am making a sandwich? 🕺🥪",
-                    "upvote_count": 67,
-                    "parent_id": "",
-                },
-                {
-                    "content": "I'm just here waiting for someone to argue that the Macarena is peak versatility 😂",
-                    "upvote_count": 43,
-                    "parent_id": "",
-                },
-                {
-                    "content": "*laughs in dad dancing* You all are taking this way too seriously! 💃👨‍🦳",
-                    "upvote_count": 29,
-                    "parent_id": "",
-                },
-            ],
-        },
-        "reply": {
-            "contrarian": [
-                {
-                    "content": "That's exactly the kind of thinking that limits our understanding of the art form.",
-                    "upvote_count": 8,
-                },
-                {
-                    "content": "I see your point, but you're overlooking some key differences here.",
-                    "upvote_count": 15,
-                },
-                {
-                    "content": "Have you actually tried both styles extensively? Because that changes everything.",
-                    "upvote_count": 3,
-                },
-            ],
-            "social": [
-                {
-                    "content": "Yes! This is exactly what I was trying to say! You explained it perfectly! 🙌",
-                    "upvote_count": 22,
-                },
-                {
-                    "content": "I love this perspective! It adds so much to what you were saying about...",
-                    "upvote_count": 18,
-                },
-                {
-                    "content": "This conversation is getting so good! Your point about versatility really resonates with me.",
-                    "upvote_count": 12,
-                },
-            ],
-            "analytical": [
-                {
-                    "content": "Your analysis is solid, but consider this additional factor: the learning curve and accessibility for beginners.",
-                    "upvote_count": 35,
-                },
-                {
-                    "content": "Good point. If we're measuring versatility, we should probably include metrics for technical difficulty and cross-style transferability.",
-                    "upvote_count": 28,
-                },
-                {
-                    "content": "Building on your observation - the historical evolution of each style also affects how we define versatility.",
-                    "upvote_count": 19,
-                },
-            ],
-            "creative": [
-                {
-                    "content": "That's like saying a river is less beautiful than an ocean - they're both water, but the experience is completely different!",
-                    "upvote_count": 41,
-                },
-                {
-                    "content": "You've painted such a vivid picture! It reminds me of how jazz musicians talk about improvisation...",
-                    "upvote_count": 25,
-                },
-                {
-                    "content": "What if we thought about this like architecture? Hip Hop is like a skyscraper, Contemporary is like a flowing sculpture...",
-                    "upvote_count": 16,
-                },
-            ],
-            "empathetic": [
-                {
-                    "content": "I can hear the passion in your words, and I think that's what makes this discussion so valuable. We all bring our own experiences.",
-                    "upvote_count": 33,
-                },
-                {
-                    "content": "Thank you for sharing that perspective. It's helping me see this from a completely different angle.",
-                    "upvote_count": 21,
-                },
-                {
-                    "content": "Your experience really adds depth to this conversation. I appreciate you opening up about that.",
-                    "upvote_count": 14,
-                },
-            ],
-            "humorous": [
-                {
-                    "content": "Sir, this is a Wendy's. (But seriously, great point about the fusion possibilities!) 😄",
-                    "upvote_count": 54,
-                },
-                {
-                    "content": "*nods sagely while secretly practicing the robot in my head* 🤖",
-                    "upvote_count": 38,
-                },
-                {
-                    "content": "Instructions unclear, accidentally became a professional dancer. Send help. 💃🆘",
-                    "upvote_count": 42,
-                },
-            ],
-        },
-    }
-
-    # Determine personality archetype
-    personality_archetype = "social"  # default
-    if user_personality_traits:
-        personality_archetype = get_personality_archetype(user_personality_traits)
-
-    # Select appropriate response pool
-    response_pool = mock_responses.get(content_type, mock_responses["comment"]).get(
-        personality_archetype, mock_responses["comment"]["social"]
-    )
-    selected_response = random.choice(response_pool)
-
-    # Create mock API response structure
-    mock_content = json.dumps(selected_response)
-    mock_api_response = SimpleNamespace(
-        id="mock_response_123",
-        object="chat.completion",
-        created=1234567890,
-        model="mock_model",
-        choices=[
-            SimpleNamespace(
-                index=0,
-                message=SimpleNamespace(role="assistant", content=mock_content),
-                finish_reason="stop",
-            )
-        ],
-        usage=SimpleNamespace(
-            prompt_tokens=100, completion_tokens=50, total_tokens=150
-        ),
-    )
-
-    return mock_api_response, "mock_model"
 
 
 def send_request(
@@ -540,10 +287,6 @@ def send_request(
             )
             if attempt < max_retries - 1:
                 time.sleep(2**attempt)
-
-    # If all retries failed, use mock response for testing
-    logger.warning("All API attempts failed. Using mock response for testing purposes.")
-    return create_mock_response(prompt, content_type, user_personality_traits)
 
 
 def parse_data(api_response: dict, type: str, subdeaddit_name: str = "") -> dict:
@@ -1483,7 +1226,9 @@ def get_comment_prompt(
     return base_prompt
 
 
-def get_topic_awareness_for_prompt(existing_comments, new_strategy, subdeaddit_name=None):
+def get_topic_awareness_for_prompt(
+    existing_comments, new_strategy, subdeaddit_name=None
+):
     """
     Analyze existing topics dynamically and guide away from over-discussed themes.
 
@@ -1498,23 +1243,10 @@ def get_topic_awareness_for_prompt(existing_comments, new_strategy, subdeaddit_n
     if not existing_comments or len(existing_comments) < 3:
         return ""
 
-    # Dynamically extract frequently mentioned key terms/phrases from existing comments
-    key_terms = extract_frequent_terms(existing_comments)
-
-    # Calculate over-mentioned terms (mentioned in >40% of comments)
-    total_comments = len(existing_comments)
-    threshold = max(2, total_comments * 0.4)  # At least 2, or 40% of comments
-    overmentioned = [
-        term for term, count in key_terms.items() if count >= threshold
-    ]
 
     # Build guidance string
     guidance_parts = []
 
-    if overmentioned:
-        guidance_parts.append(
-            f"TOPIC DIVERSITY: Avoid overusing these frequently mentioned terms/phrases: {', '.join(overmentioned[:3])}"
-        )
 
     # Add universal variety approaches
     discussion_approaches = [
@@ -1525,7 +1257,7 @@ def get_topic_awareness_for_prompt(existing_comments, new_strategy, subdeaddit_n
         "relate to current trends or recent developments",
         "explore a less-discussed aspect of the topic",
         "connect to broader implications or consequences",
-        "offer a creative solution or alternative approach"
+        "offer a creative solution or alternative approach",
     ]
 
     if len(existing_comments) > 5:
@@ -1533,50 +1265,6 @@ def get_topic_awareness_for_prompt(existing_comments, new_strategy, subdeaddit_n
         guidance_parts.append(f"Try to {random_approach}")
 
     return " ".join(guidance_parts) + ". " if guidance_parts else ""
-
-
-def extract_frequent_terms(comments):
-    """
-    Extract frequently mentioned terms from comments.
-
-    Args:
-        comments (list): List of comment dictionaries
-
-    Returns:
-        dict: Dictionary of terms and their frequency counts
-    """
-    import re
-    from collections import Counter
-
-    # Combine all comment content
-    all_text = " ".join([comment.get("content", "") for comment in comments]).lower()
-
-    # Extract meaningful terms (2-20 characters, excluding common words)
-    terms = re.findall(r'\b[a-zA-Z]{2,20}\b', all_text)
-
-    # Filter out common stop words and very short terms
-    stop_words = {
-        'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-        'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above',
-        'below', 'between', 'among', 'this', 'that', 'these', 'those', 'is', 'are', 'was',
-        'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-        'would', 'could', 'should', 'may', 'might', 'must', 'can', 'its', 'it', 'you',
-        'your', 'they', 'them', 'their', 'we', 'our', 'us', 'my', 'me', 'him', 'her',
-        'his', 'she', 'he', 'all', 'any', 'some', 'each', 'every', 'no', 'not', 'very',
-        'so', 'just', 'now', 'how', 'what', 'when', 'where', 'why', 'who', 'which',
-        'than', 'too', 'also', 'more', 'most', 'much', 'many', 'get', 'got', 'like',
-        'think', 'know', 'see', 'want', 'need', 'make', 'take', 'come', 'go', 'say',
-        'said', 'tell', 'look', 'feel', 'try', 'use', 'work', 'way', 'time', 'good',
-        'great', 'nice', 'bad', 'right', 'wrong', 'yes', 'yeah', 'omg', 'lol'
-    }
-
-    meaningful_terms = [term for term in terms if term not in stop_words and len(term) > 2]
-
-    # Count frequency and return top terms
-    term_counts = Counter(meaningful_terms)
-
-    # Only return terms mentioned at least twice
-    return {term: count for term, count in term_counts.items() if count >= 2}
 
 
 def calculate_realistic_upvotes(

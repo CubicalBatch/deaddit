@@ -224,63 +224,6 @@
     </div>
 </div>
 
-<!-- Database Configuration Status -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-database"></i> Database Configuration
-                </h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">Application settings are now stored in the database. Only API_TOKEN remains as an environment variable for security.</p>
-                
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Setting</th>
-                                <th>Current Value</th>
-                                <th>Source</th>
-                                <th>Description</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for key, setting in config.all_settings.items() %}
-                            <tr>
-                                <td><code>{{ key }}</code></td>
-                                <td>
-                                    {% if key == 'OPENAI_KEY' and setting.value != 'your_openrouter_api_key' and setting.value %}
-                                        <span class="text-muted">***configured***</span>
-                                    {% elif key == 'API_TOKEN' %}
-                                        {{ setting.value }}
-                                    {% else %}
-                                        <code>{{ setting.value if setting.value else '(not set)' }}</code>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge bg-{% if setting.source == 'database' %}primary{% elif setting.source == 'environment' %}warning{% else %}secondary{% endif %}">
-                                        {{ setting.source }}
-                                    </span>
-                                </td>
-                                <td><small class="text-muted">{{ setting.description }}</small></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="alert alert-info mt-3">
-                    <i class="bi bi-info-circle"></i>
-                    <strong>Configuration Migration:</strong> Settings are now stored in the database for easier management. 
-                    You can configure them using the form above. The only setting that remains as an environment variable is 
-                    <code>API_TOKEN</code> for security reasons.
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- System Information -->
 <div class="row mb-4">
