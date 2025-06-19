@@ -162,3 +162,7 @@ cython_debug/
 .env_*
 personal/*
 .aider*
+.claude/*
+.ruff_cache/*
+CLAUDE.md
+building/*
