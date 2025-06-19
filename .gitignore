@@ -160,9 +160,9 @@ cython_debug/
 #.idea/
 .vscode/*
 .env_*
-personal/*
+personal/
 .aider*
-.claude/*
-.ruff_cache/*
+.claude/
+.ruff_cache/
 CLAUDE.md
-building/*
+building/
