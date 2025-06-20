@@ -52,14 +52,18 @@ def fetch_all_models_from_api(api_url, api_key, timeout=30):
     # Strategy 1: Try single request first (most APIs return all models this way)
     try:
         logger.info("Attempting to fetch all models in single request...")
-        response = requests.get(f"{api_url.rstrip('/')}/models", headers=headers, timeout=timeout)
+        response = requests.get(
+            f"{api_url.rstrip('/')}/models", headers=headers, timeout=timeout
+        )
 
         if response.status_code == 200:
             models_data = response.json()
             models = extract_models_from_response(models_data)
 
             if models:
-                logger.info(f"Successfully fetched {len(models)} models in single request")
+                logger.info(
+                    f"Successfully fetched {len(models)} models in single request"
+                )
                 return models, f"Fetched {len(models)} models"
     except Exception as e:
         logger.debug(f"Single request failed: {e}")
@@ -69,7 +73,10 @@ def fetch_all_models_from_api(api_url, api_key, timeout=30):
 
     pagination_styles = [
         # OpenAI-style limit/after
-        lambda page, limit: {"limit": limit, "after": all_models[-1] if page > 1 and all_models else None},
+        lambda page, limit: {
+            "limit": limit,
+            "after": all_models[-1] if page > 1 and all_models else None,
+        },
         # Standard offset/limit
         lambda page, limit: {"limit": limit, "offset": (page - 1) * limit},
         # Page-based pagination
@@ -104,7 +111,7 @@ def fetch_all_models_from_api(api_url, api_key, timeout=30):
                     f"{api_url.rstrip('/')}/models",
                     headers=headers,
                     params=params,
-                    timeout=timeout
+                    timeout=timeout,
                 )
 
                 if response.status_code == 200:
@@ -116,16 +123,22 @@ def fetch_all_models_from_api(api_url, api_key, timeout=30):
                         logger.debug(f"Page {page}: found {len(page_models)} models")
 
                         # Check if there are more pages
-                        has_more = check_has_more_pages(models_data, page_models, per_page)
+                        has_more = check_has_more_pages(
+                            models_data, page_models, per_page
+                        )
                         if not has_more:
-                            logger.info(f"Pagination complete - fetched {len(all_models)} total models")
+                            logger.info(
+                                f"Pagination complete - fetched {len(all_models)} total models"
+                            )
                             break
                     else:
                         page_models_found = False
 
                     page += 1
                 else:
-                    logger.debug(f"Pagination request failed with status {response.status_code}")
+                    logger.debug(
+                        f"Pagination request failed with status {response.status_code}"
+                    )
                     break
 
             except Exception as e:
@@ -148,7 +161,11 @@ def extract_models_from_response(models_data):
 
     if "data" in models_data:
         # OpenAI-style response
-        models = [model.get("id", "Unknown") for model in models_data["data"] if model.get("id")]
+        models = [
+            model.get("id", "Unknown")
+            for model in models_data["data"]
+            if model.get("id")
+        ]
     elif "models" in models_data:
         # Alternative format
         models = [
@@ -1381,16 +1398,17 @@ def save_deaddit_config_api():
             # Validate minimum length
             token = data["api_token"].strip()
             if len(token) < 3:
-                return jsonify({
-                    "success": False,
-                    "message": "API Token must be at least 3 characters long"
-                })
+                return jsonify(
+                    {
+                        "success": False,
+                        "message": "API Token must be at least 3 characters long",
+                    }
+                )
             Config.set("API_TOKEN", token)
 
-        return jsonify({
-            "success": True,
-            "message": "Deaddit configuration saved successfully"
-        })
+        return jsonify(
+            {"success": True, "message": "Deaddit configuration saved successfully"}
+        )
 
     except Exception as e:
         return jsonify(
@@ -1537,36 +1555,52 @@ def load_models_api():
         cached_models = ApiModel.get_models_for_api(api_url)
         if cached_models:
             model_names = [model.model_name for model in cached_models]
-            return jsonify({
-                "success": True,
-                "models": model_names,
-                "message": f"Using {len(model_names)} cached models - API connection failed",
-                "cached": True
-            })
-        return jsonify({"success": False, "message": "Cannot connect to AI service and no cached models available"})
+            return jsonify(
+                {
+                    "success": True,
+                    "models": model_names,
+                    "message": f"Using {len(model_names)} cached models - API connection failed",
+                    "cached": True,
+                }
+            )
+        return jsonify(
+            {
+                "success": False,
+                "message": "Cannot connect to AI service and no cached models available",
+            }
+        )
     except requests.exceptions.Timeout:
         # Fallback to cached models
         cached_models = ApiModel.get_models_for_api(api_url)
         if cached_models:
             model_names = [model.model_name for model in cached_models]
-            return jsonify({
-                "success": True,
-                "models": model_names,
-                "message": f"Using {len(model_names)} cached models - API connection timed out",
-                "cached": True
-            })
-        return jsonify({"success": False, "message": "Connection timeout and no cached models available"})
+            return jsonify(
+                {
+                    "success": True,
+                    "models": model_names,
+                    "message": f"Using {len(model_names)} cached models - API connection timed out",
+                    "cached": True,
+                }
+            )
+        return jsonify(
+            {
+                "success": False,
+                "message": "Connection timeout and no cached models available",
+            }
+        )
     except Exception as e:
         # Fallback to cached models
         cached_models = ApiModel.get_models_for_api(api_url)
         if cached_models:
             model_names = [model.model_name for model in cached_models]
-            return jsonify({
-                "success": True,
-                "models": model_names,
-                "message": f"Using {len(model_names)} cached models - Error: {str(e)}",
-                "cached": True
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "models": model_names,
+                    "message": f"Using {len(model_names)} cached models - Error: {str(e)}",
+                    "cached": True,
+                }
+            )
         return jsonify({"success": False, "message": f"Error loading models: {str(e)}"})
 
 
@@ -1576,35 +1610,42 @@ def get_cached_models_api(api_url_hash):
     """API endpoint to get cached models for a specific API endpoint."""
     try:
         # Decode the base64 encoded API URL
-        api_url = base64.b64decode(api_url_hash.encode()).decode('utf-8')
+        api_url = base64.b64decode(api_url_hash.encode()).decode("utf-8")
 
         # Get cached models
         cached_models = ApiModel.get_models_for_api(api_url)
         model_names = [model.model_name for model in cached_models]
 
         if cached_models:
-            last_fetched = max(model.last_fetched for model in cached_models) if cached_models else None
-            return jsonify({
-                "success": True,
-                "models": model_names,
-                "cached": True,
-                "last_fetched": last_fetched.isoformat() if last_fetched else None,
-                "count": len(model_names)
-            })
+            last_fetched = (
+                max(model.last_fetched for model in cached_models)
+                if cached_models
+                else None
+            )
+            return jsonify(
+                {
+                    "success": True,
+                    "models": model_names,
+                    "cached": True,
+                    "last_fetched": last_fetched.isoformat() if last_fetched else None,
+                    "count": len(model_names),
+                }
+            )
         else:
-            return jsonify({
-                "success": True,
-                "models": [],
-                "cached": True,
-                "message": "No cached models found for this API endpoint"
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "models": [],
+                    "cached": True,
+                    "message": "No cached models found for this API endpoint",
+                }
+            )
 
     except Exception as e:
         logger.error(f"Error getting cached models: {str(e)}")
-        return jsonify({
-            "success": False,
-            "message": f"Error retrieving cached models: {str(e)}"
-        })
+        return jsonify(
+            {"success": False, "message": f"Error retrieving cached models: {str(e)}"}
+        )
 
 
 @admin_bp.route("/api/endpoint-config/<api_url_hash>", methods=["GET"])
@@ -1613,7 +1654,7 @@ def get_endpoint_config_api(api_url_hash):
     """Get configuration for a specific API endpoint including default model and cached models."""
     try:
         # Decode the base64 encoded API URL
-        api_url = base64.b64decode(api_url_hash.encode()).decode('utf-8')
+        api_url = base64.b64decode(api_url_hash.encode()).decode("utf-8")
 
         # Get default model for this endpoint
         default_model = ApiEndpointConfig.get_default_model_for_endpoint(api_url)
@@ -1626,21 +1667,25 @@ def get_endpoint_config_api(api_url_hash):
         if cached_models:
             last_fetched = max(model.last_fetched for model in cached_models)
 
-        return jsonify({
-            "success": True,
-            "api_url": api_url,
-            "default_model": default_model,
-            "models": model_names,
-            "last_fetched": last_fetched.isoformat() if last_fetched else None,
-            "model_count": len(model_names)
-        })
+        return jsonify(
+            {
+                "success": True,
+                "api_url": api_url,
+                "default_model": default_model,
+                "models": model_names,
+                "last_fetched": last_fetched.isoformat() if last_fetched else None,
+                "model_count": len(model_names),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting endpoint config: {str(e)}")
-        return jsonify({
-            "success": False,
-            "message": f"Error retrieving endpoint configuration: {str(e)}"
-        })
+        return jsonify(
+            {
+                "success": False,
+                "message": f"Error retrieving endpoint configuration: {str(e)}",
+            }
+        )
 
 
 @admin_bp.route("/api/endpoint-config", methods=["POST"])
@@ -1659,22 +1704,25 @@ def save_endpoint_default_model_api():
             return jsonify({"success": False, "message": "Default model is required"})
 
         # Save the default model for this endpoint
-        config = ApiEndpointConfig.set_default_model_for_endpoint(api_url, default_model)
+        config = ApiEndpointConfig.set_default_model_for_endpoint(
+            api_url, default_model
+        )
 
         logger.info(f"Set default model '{default_model}' for API endpoint: {api_url}")
 
-        return jsonify({
-            "success": True,
-            "message": f"Default model '{default_model}' saved for this endpoint",
-            "config": config.to_dict()
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Default model '{default_model}' saved for this endpoint",
+                "config": config.to_dict(),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error saving endpoint default model: {str(e)}")
-        return jsonify({
-            "success": False,
-            "message": f"Error saving default model: {str(e)}"
-        })
+        return jsonify(
+            {"success": False, "message": f"Error saving default model: {str(e)}"}
+        )
 
 
 @admin_bp.route("/api/get-endpoint-key", methods=["POST"])

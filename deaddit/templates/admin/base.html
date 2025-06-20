@@ -210,7 +210,12 @@
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
     <script>
         // Initialize WebSocket connection for real-time updates
-        const socket = io('/admin');
+        const socket = io('/admin', {
+            transports: ['polling'],
+            upgrade: false,
+            timeout: 20000,
+            forceNew: true
+        });
         let isConnected = false;
         
         socket.on('connect', function() {
@@ -343,8 +348,8 @@
             });
         }
 
-        // Fallback refresh every 10 seconds (only when WebSocket is disconnected)
-        setInterval(refreshJobStatus, 10000);
+        // Fallback refresh every 30 seconds (only when WebSocket is disconnected)
+        setInterval(refreshJobStatus, 30000);
         
         // Refresh stats on dashboard
         function refreshStats() {
@@ -368,8 +373,8 @@
             }
         }
 
-        // Refresh stats every 30 seconds
-        setInterval(refreshStats, 30000);
+        // Refresh stats every 60 seconds
+        setInterval(refreshStats, 60000);
     </script>
     {% block extra_js %}{% endblock %}
 </body>

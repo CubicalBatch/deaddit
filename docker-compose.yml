@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  deaddit:
+    image: cubicalbatch/deaddit
+    ports:
+      - "5000:5000"
+    volumes:
+      - deaddit_data:/instance
+    restart: unless-stopped
+
+volumes:
+  deaddit_data:

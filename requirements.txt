@@ -1,10 +1,8 @@
-flask
-requests
-flask-sqlalchemy
-flask-caching
+Flask
+Flask-SQLAlchemy
+Flask-SocketIO
+Flask-Caching
+APScheduler
 loguru
-
-### Dev
-black
-pytest
-pylint
+requests
+click

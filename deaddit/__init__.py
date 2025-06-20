@@ -15,7 +15,17 @@ app.config["CACHE_DEFAULT_TIMEOUT"] = 300  # 5 minutes default timeout
 
 db = SQLAlchemy(app)
 cache = Cache(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="threading",
+    ping_timeout=60,
+    ping_interval=25,
+    logger=False,
+    engineio_logger=False,
+    allow_upgrades=False,
+    transports=["polling"],
+)
 
 # Get the API token from environment variable (will be updated to use Config after database is ready)
 API_TOKEN = os.environ.get("API_TOKEN")
@@ -26,7 +36,9 @@ logger = logging.getLogger(__name__)
 
 # Initial warning based on environment variable (will be checked again after Config is loaded)
 if not API_TOKEN:
-    logger.warning("No API_TOKEN set in environment. API routes will be publicly accessible.")
+    logger.warning(
+        "No API_TOKEN set in environment. API routes will be publicly accessible."
+    )
 
 
 @app.before_request
@@ -37,6 +49,7 @@ def authenticate():
         api_token = None
         try:
             from .config import Config
+
             api_token = Config.get("API_TOKEN")
         except Exception:
             # Fallback to environment if Config isn't available yet
@@ -54,14 +67,15 @@ from .config import Config  # noqa: E402
 @app.context_processor
 def inject_config():
     return {
-        'config': {
-            'api_token_set': Config.is_api_token_set(),
-            'api_base_url': Config.get('API_BASE_URL'),
-            'openai_api_url': Config.get('OPENAI_API_URL'),
-            'openai_model': Config.get('OPENAI_MODEL'),
-            'openai_key_set': bool(Config.get('OPENAI_KEY')),
+        "config": {
+            "api_token_set": Config.is_api_token_set(),
+            "api_base_url": Config.get("API_BASE_URL"),
+            "openai_api_url": Config.get("OPENAI_API_URL"),
+            "openai_model": Config.get("OPENAI_MODEL"),
+            "openai_key_set": bool(Config.get("OPENAI_KEY")),
         }
     }
+
 
 with app.app_context():
     db.create_all()
@@ -74,7 +88,9 @@ with app.app_context():
 
     # Check API_TOKEN status using Config (database first, then environment)
     if not Config.is_api_token_set():
-        logger.warning("No API_TOKEN set in database or environment. Admin and API routes will be publicly accessible.")
+        logger.warning(
+            "No API_TOKEN set in database or environment. Admin and API routes will be publicly accessible."
+        )
 
 
 # Error handlers

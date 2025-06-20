@@ -28,11 +28,12 @@ def get_api_headers():
     api_token = None
     try:
         from .config import Config
+
         api_token = Config.get("API_TOKEN")
     except Exception:
         # Fallback to environment if Config isn't available yet
         api_token = os.getenv("API_TOKEN")
-    
+
     if api_token:
         return {
             "Authorization": f"Bearer {api_token}",
@@ -1252,10 +1253,8 @@ def get_topic_awareness_for_prompt(
     if not existing_comments or len(existing_comments) < 3:
         return ""
 
-
     # Build guidance string
     guidance_parts = []
-
 
     # Add universal variety approaches
     discussion_approaches = [

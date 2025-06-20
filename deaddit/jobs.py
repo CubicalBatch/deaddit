@@ -54,7 +54,7 @@ def get_api_headers():
     except Exception:
         # Fallback to environment if Config isn't available yet
         api_token = os.environ.get("API_TOKEN")
-    
+
     headers = {}
     if api_token:
         headers["Authorization"] = f"Bearer {api_token}"
@@ -957,40 +957,54 @@ def _generate_comment_data(
     # Determine if this should be a reply (30% chance, same as CLI loader)
     # Use API to get existing comments to ensure proper context
     import requests
+
     try:
         response = requests.get(
             f"{get_api_base_url()}/api/post/{post.id}",
             headers=get_api_headers(),
-            timeout=30
+            timeout=30,
         )
         if response.status_code == 200:
             post_data = response.json()
+
             # Flatten comment tree to get all comments
             def flatten_comments(comments):
                 all_comments = []
                 for comment in comments:
                     all_comments.append(comment)
-                    if comment.get('replies'):
-                        all_comments.extend(flatten_comments(comment['replies']))
+                    if comment.get("replies"):
+                        all_comments.extend(flatten_comments(comment["replies"]))
                 return all_comments
 
-            existing_comments = flatten_comments(post_data.get('comments', []))
-            logger.info(f"Checking for replies: Found {len(existing_comments)} existing comments for post {post.id}")
+            existing_comments = flatten_comments(post_data.get("comments", []))
+            logger.info(
+                f"Checking for replies: Found {len(existing_comments)} existing comments for post {post.id}"
+            )
         else:
-            logger.warning(f"Failed to fetch comments for post {post.id}, creating top-level comment")
+            logger.warning(
+                f"Failed to fetch comments for post {post.id}, creating top-level comment"
+            )
             existing_comments = []
     except Exception as e:
-        logger.warning(f"Error fetching comments for post {post.id}: {e}, creating top-level comment")
+        logger.warning(
+            f"Error fetching comments for post {post.id}: {e}, creating top-level comment"
+        )
         existing_comments = []
 
     parent_id = None
 
-    if existing_comments and random.random() < 0.3:  # 30% chance to reply to existing comment
+    if (
+        existing_comments and random.random() < 0.3
+    ):  # 30% chance to reply to existing comment
         parent_comment = random.choice(existing_comments)
-        parent_id = parent_comment.get('id')
-        logger.info(f"Selected parent comment ID {parent_id} by {parent_comment.get('user', 'unknown')}")
+        parent_id = parent_comment.get("id")
+        logger.info(
+            f"Selected parent comment ID {parent_id} by {parent_comment.get('user', 'unknown')}"
+        )
     else:
-        logger.info(f"Creating top-level comment (no parent selected, {len(existing_comments)} comments available)")
+        logger.info(
+            f"Creating top-level comment (no parent selected, {len(existing_comments)} comments available)"
+        )
 
     system_prompt = f"""You are {author.username}, a {author.age}-year-old {author.gender.lower()} who works as a {author.occupation}.
 
@@ -1004,10 +1018,12 @@ You are commenting on a post in /r/{post.subdeaddit.name}."""
     if parent_id:
         # Find the parent comment data from our existing_comments list
         parent_comment_data = next(
-            (c for c in existing_comments if c.get('id') == parent_id), None
+            (c for c in existing_comments if c.get("id") == parent_id), None
         )
         if not parent_comment_data:
-            logger.warning(f"Could not find parent comment {parent_id}, creating top-level comment")
+            logger.warning(
+                f"Could not find parent comment {parent_id}, creating top-level comment"
+            )
             parent_id = None
 
     if parent_id and parent_comment_data:
@@ -1016,8 +1032,8 @@ You are commenting on a post in /r/{post.subdeaddit.name}."""
 
 {post.content}
 
-You're replying to this comment by {parent_comment_data.get('user', 'unknown')}:
-"{parent_comment_data.get('content', '')}"
+You're replying to this comment by {parent_comment_data.get("user", "unknown")}:
+"{parent_comment_data.get("content", "")}"
 
 Write a reply that:
 - Reflects your personality and writing style
@@ -1083,7 +1099,9 @@ Write your comment now."""
         comment_data["parent_id"] = parent_id
         comment_data["model"] = used_model
 
-        logger.info(f"FINAL COMMENT DATA: parent_id={parent_id}, user={author.username}, post_id={post.id}")
+        logger.info(
+            f"FINAL COMMENT DATA: parent_id={parent_id}, user={author.username}, post_id={post.id}"
+        )
 
         # Store API request/response for debugging
         comment_data["_api_request"] = {

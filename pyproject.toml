@@ -16,6 +16,7 @@ dependencies = [
     "flask-sqlalchemy",
     "flask-caching",
     "loguru",
+    "gevent>=25.5.1",
 ]
 
 [project.optional-dependencies]
