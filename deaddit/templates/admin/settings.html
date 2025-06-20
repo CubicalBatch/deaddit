@@ -36,7 +36,7 @@
                                 <input type="url" class="form-control" id="openai_api_url" name="openai_api_url" 
                                        value="{{ config.openai_api_url if config.openai_api_url != 'Not set' else '' }}" 
                                        placeholder="http://localhost:11434/v1" required>
-                                <div class="form-text">The base URL for your OpenAI-compatible API</div>
+                                <div class="form-text">The base URL for your OpenAI-compatible API. Typically ends with /v1</div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -78,15 +78,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="api_base_url" class="form-label">Application Base URL</label>
-                                <input type="url" class="form-control" id="api_base_url" name="api_base_url" 
-                                       value="{{ config.api_base_url if config.api_base_url != 'Not set' else '' }}" 
-                                       placeholder="http://localhost:5000">
-                                <div class="form-text">Base URL for internal API calls</div>
-                            </div>
-                        </div>
                     </div>
                     <div class="row">
                         <div class="col-md-12">
@@ -105,6 +96,57 @@
                 <!-- Connection Test Results -->
                 <div id="connection-test-result" class="mt-3" style="display: none;"></div>
                 
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deaddit Configuration -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-gear-fill"></i> Deaddit Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="deaddit-config-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="api_base_url" class="form-label">Application Base URL</label>
+                                <input type="url" class="form-control" id="api_base_url" name="api_base_url" 
+                                       value="{{ config.api_base_url if config.api_base_url != 'Not set' else '' }}" 
+                                       placeholder="http://localhost:5000">
+                                <div class="form-text">Base URL for internal API calls</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="api_token" class="form-label">API Token</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="api_token" name="api_token" 
+                                           placeholder="Enter API token (minimum 3 characters)" minlength="3"
+                                           {% if config.api_token_set %}value="••••••••••••••••"{% endif %}>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('api_token')">
+                                        <i class="bi bi-eye" id="api_token_toggle_icon"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Secure token for admin access (minimum 3 characters)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle"></i> Save Configuration
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -305,6 +347,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up form submission
     document.getElementById('openai-config-form').addEventListener('submit', saveConfiguration);
+    document.getElementById('deaddit-config-form').addEventListener('submit', saveDeadditsConfiguration);
     
     // Set preset selection based on current URL
     setCurrentPreset();
@@ -415,6 +458,75 @@ function saveConfiguration(event) {
             if (keyInput.value && keyInput.value !== '••••••••••••••••') {
                 keyInput.value = '••••••••••••••••';
             }
+        } else {
+            showAlert('<i class="bi bi-x-circle"></i> Failed to save configuration: ' + data.message, 'alert-danger');
+        }
+    })
+    .catch(error => {
+        showAlert('<i class="bi bi-x-circle"></i> Error saving configuration: ' + error.message, 'alert-danger');
+    })
+    .finally(() => {
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+    });
+}
+
+function saveDeadditsConfiguration(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const tokenInput = document.getElementById('api_token');
+    
+    const data = {
+        api_base_url: formData.get('api_base_url'),
+        api_token: formData.get('api_token')
+    };
+    
+    // Handle masked token - use actual token if available
+    if (data.api_token === '••••••••••••••••') {
+        const actualToken = tokenInput.getAttribute('data-actual-token');
+        if (actualToken) {
+            data.api_token = actualToken;
+        } else {
+            delete data.api_token;
+        }
+    }
+    
+    // Validate API token minimum length
+    if (data.api_token && data.api_token.length < 3) {
+        showAlert('<i class="bi bi-exclamation-triangle"></i> API Token must be at least 3 characters long', 'alert-warning');
+        return;
+    }
+    
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    const originalText = submitButton.innerHTML;
+    
+    submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+    submitButton.disabled = true;
+    
+    fetch('/admin/api/save-deaddit-config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('<i class="bi bi-check-circle"></i> Deaddit configuration saved successfully!', 'alert-success');
+            
+            // Clear the actual token data attribute since we just saved
+            const tokenInput = document.getElementById('api_token');
+            tokenInput.removeAttribute('data-actual-token');
+            if (tokenInput.value && tokenInput.value !== '••••••••••••••••') {
+                tokenInput.value = '••••••••••••••••';
+            }
+            
+            // Reload page to show/hide warning box
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
             showAlert('<i class="bi bi-x-circle"></i> Failed to save configuration: ' + data.message, 'alert-danger');
         }

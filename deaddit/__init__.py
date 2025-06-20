@@ -17,27 +17,51 @@ db = SQLAlchemy(app)
 cache = Cache(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-# Get the API token from environment variable
+# Get the API token from environment variable (will be updated to use Config after database is ready)
 API_TOKEN = os.environ.get("API_TOKEN")
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
+# Initial warning based on environment variable (will be checked again after Config is loaded)
 if not API_TOKEN:
-    logger.warning("No API_TOKEN set. API routes will be publicly accessible.")
+    logger.warning("No API_TOKEN set in environment. API routes will be publicly accessible.")
 
 
 @app.before_request
 def authenticate():
     if request.path.startswith("/api/ingest"):
         token = request.headers.get("Authorization")
-        if API_TOKEN and (not token or token != f"Bearer {API_TOKEN}"):
+        # Use Config to get API_TOKEN (database first, then environment)
+        api_token = None
+        try:
+            from .config import Config
+            api_token = Config.get("API_TOKEN")
+        except Exception:
+            # Fallback to environment if Config isn't available yet
+            api_token = API_TOKEN
+
+        if api_token and (not token or token != f"Bearer {api_token}"):
             return jsonify({"error": "Unauthorized"}), 401
 
 
 # Import config after app is created to avoid circular imports
 from .config import Config  # noqa: E402
+
+
+# Template context processor to make config available in templates
+@app.context_processor
+def inject_config():
+    return {
+        'config': {
+            'api_token_set': Config.is_api_token_set(),
+            'api_base_url': Config.get('API_BASE_URL'),
+            'openai_api_url': Config.get('OPENAI_API_URL'),
+            'openai_model': Config.get('OPENAI_MODEL'),
+            'openai_key_set': bool(Config.get('OPENAI_KEY')),
+        }
+    }
 
 with app.app_context():
     db.create_all()
@@ -47,6 +71,10 @@ with app.app_context():
     app.config["PERMANENT_SESSION_LIFETIME"] = 24 * 60 * 60  # 24 hours
     # Initialize default settings if database is empty
     Config.initialize_defaults()
+
+    # Check API_TOKEN status using Config (database first, then environment)
+    if not Config.is_api_token_set():
+        logger.warning("No API_TOKEN set in database or environment. Admin and API routes will be publicly accessible.")
 
 
 # Error handlers

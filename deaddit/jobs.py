@@ -47,9 +47,18 @@ def get_api_base_url():
 
 def get_api_headers():
     """Get API headers with current API token."""
+    # Use Config to get API_TOKEN (database first, then environment)
+    api_token = None
+    try:
+        api_token = Config.get("API_TOKEN")
+    except Exception:
+        # Fallback to environment if Config isn't available yet
+        api_token = os.environ.get("API_TOKEN")
+    
     headers = {}
-    if os.getenv("API_TOKEN"):
-        headers["Authorization"] = f"Bearer {os.getenv('API_TOKEN')}"
+    if api_token:
+        headers["Authorization"] = f"Bearer {api_token}"
+        headers["Content-Type"] = "application/json"
     return headers
 
 

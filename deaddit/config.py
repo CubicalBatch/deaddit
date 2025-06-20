@@ -24,6 +24,7 @@ class Config:
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "True",
         "DEFAULT_DATA_LOADED": "false",
+        "API_TOKEN": None,
     }
 
     # Descriptions for each setting
@@ -37,6 +38,7 @@ class Config:
         "FLASK_ENV": "Flask environment (development/production)",
         "FLASK_DEBUG": "Enable Flask debug mode (True/False)",
         "DEFAULT_DATA_LOADED": "Whether default subdeaddits and users have been loaded",
+        "API_TOKEN": "Security token for admin access (minimum 3 characters)",
     }
 
     @classmethod
@@ -49,8 +51,17 @@ class Config:
         3. Default value from DEFAULTS
         4. Provided default parameter
         """
-        # Special case: API_TOKEN always comes from environment
+        # Special case: API_TOKEN checks database first, then environment
         if key == "API_TOKEN":
+            try:
+                # Try to get from database first
+                db_value = Setting.get_value(key)
+                if db_value is not None:
+                    return db_value
+            except Exception:
+                # Database might not be initialized yet, fall back to env
+                pass
+            # Fall back to environment variable
             return os.environ.get(key)
 
         try:
@@ -77,11 +88,6 @@ class Config:
     @classmethod
     def set(cls, key: str, value: str) -> None:
         """Set a configuration value in the database."""
-        if key == "API_TOKEN":
-            raise ValueError(
-                "API_TOKEN cannot be set in database, use environment variable"
-            )
-
         description = cls.DESCRIPTIONS.get(key)
         Setting.set_value(key, value, description)
 
@@ -98,12 +104,12 @@ class Config:
                 "source": cls._get_source(key),
             }
 
-        # Add API_TOKEN info (but not the actual value for security)
-        api_token = os.environ.get("API_TOKEN")
+        # Handle API_TOKEN specially - don't expose the actual value
+        api_token = cls.get("API_TOKEN")
         settings["API_TOKEN"] = {
             "value": "***set***" if api_token else "***not set***",
-            "description": "Bearer token for protecting /api/ingest endpoints (environment variable only)",
-            "source": "environment",
+            "description": cls.DESCRIPTIONS.get("API_TOKEN", ""),
+            "source": cls._get_source("API_TOKEN"),
         }
 
         return settings
@@ -112,7 +118,18 @@ class Config:
     def _get_source(cls, key: str) -> str:
         """Determine the source of a configuration value."""
         if key == "API_TOKEN":
-            return "environment"
+            try:
+                # Check database first
+                db_value = Setting.get_value(key)
+                if db_value is not None:
+                    return "database"
+            except Exception:
+                pass
+            # Then check environment
+            env_value = os.environ.get(key)
+            if env_value is not None:
+                return "environment"
+            return "none"
 
         try:
             db_value = Setting.get_value(key)
@@ -129,6 +146,12 @@ class Config:
             return "default"
 
         return "none"
+
+    @classmethod
+    def is_api_token_set(cls) -> bool:
+        """Check if API_TOKEN is set (either in database or environment)."""
+        token = cls.get("API_TOKEN")
+        return token is not None and len(token.strip()) > 0
 
     @classmethod
     def initialize_defaults(cls) -> None:

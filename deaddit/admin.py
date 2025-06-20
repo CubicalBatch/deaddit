@@ -189,10 +189,10 @@ def admin_required(f):
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Get API_TOKEN from environment
-        import os
+        # Get API_TOKEN from database first, then environment
+        from deaddit.config import Config
 
-        api_token = os.environ.get("API_TOKEN")
+        api_token = Config.get("API_TOKEN")
 
         # If no API_TOKEN is set, allow access
         if not api_token:
@@ -210,9 +210,9 @@ def admin_required(f):
 @admin_bp.route("/login", methods=["GET", "POST"])
 def login():
     """Admin login page."""
-    import os
+    from deaddit.config import Config
 
-    api_token = os.environ.get("API_TOKEN")
+    api_token = Config.get("API_TOKEN")
 
     # If no API_TOKEN is set, redirect to dashboard
     if not api_token:
@@ -1359,6 +1359,38 @@ def save_config_api():
                 "config": config,
             }
         )
+
+    except Exception as e:
+        return jsonify(
+            {"success": False, "message": f"Failed to save configuration: {str(e)}"}
+        )
+
+
+@admin_bp.route("/api/save-deaddit-config", methods=["POST"])
+@admin_required
+def save_deaddit_config_api():
+    """API endpoint to save Deaddit configuration to database."""
+    try:
+        data = request.get_json()
+
+        # Save configuration values to database
+        if data.get("api_base_url"):
+            Config.set("API_BASE_URL", data["api_base_url"].rstrip("/"))
+
+        if data.get("api_token"):
+            # Validate minimum length
+            token = data["api_token"].strip()
+            if len(token) < 3:
+                return jsonify({
+                    "success": False,
+                    "message": "API Token must be at least 3 characters long"
+                })
+            Config.set("API_TOKEN", token)
+
+        return jsonify({
+            "success": True,
+            "message": "Deaddit configuration saved successfully"
+        })
 
     except Exception as e:
         return jsonify(

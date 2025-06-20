@@ -169,13 +169,6 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'admin.analytics' %}active{% endif %}" 
-                       href="{{ url_for('admin.analytics') }}">
-                        <i class="bi bi-graph-up"></i>
-                        <span class="nav-text">Analytics</span>
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}" 
                        href="{{ url_for('admin.settings') }}">
                         <i class="bi bi-gear"></i>
@@ -188,6 +181,14 @@
 
     <div class="container-fluid">
         <main role="main">
+            {% if not config.api_token_set %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <strong>Security Warning:</strong> The admin interface is unprotected. Set an API_TOKEN in Settings to secure admin access.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+            
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         {% for category, message in messages %}
