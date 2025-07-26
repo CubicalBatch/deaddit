@@ -58,8 +58,8 @@
                 <form action="{{ url_for('admin.generate_subdeaddit') }}" method="post">
                     <div class="mb-3">
                         <label for="subdeaddit-count" class="form-label">Count</label>
-                        <input type="number" class="form-control" id="subdeaddit-count" name="count" value="1" min="1" max="10">
-                        <div class="form-text">Number of subdeaddits to generate (1-10)</div>
+                        <input type="number" class="form-control" id="subdeaddit-count" name="count" value="1" min="1">
+                        <div class="form-text">Number of subdeaddits to generate (minimum 1)</div>
                     </div>
                     
                     <div class="mb-3">
@@ -103,8 +103,8 @@
                 <form action="{{ url_for('admin.generate_user') }}" method="post">
                     <div class="mb-3">
                         <label for="user-count" class="form-label">Count</label>
-                        <input type="number" class="form-control" id="user-count" name="count" value="1" min="1" max="20">
-                        <div class="form-text">Number of users to generate (1-20)</div>
+                        <input type="number" class="form-control" id="user-count" name="count" value="1" min="1">
+                        <div class="form-text">Number of users to generate (minimum 1)</div>
                     </div>
                     
                     <div class="mb-3">
@@ -148,8 +148,8 @@
                 <form action="{{ url_for('admin.generate_post') }}" method="post">
                     <div class="mb-3">
                         <label for="post-count" class="form-label">Count</label>
-                        <input type="number" class="form-control" id="post-count" name="count" value="1" min="1" max="50">
-                        <div class="form-text">Number of posts to generate (1-50)</div>
+                        <input type="number" class="form-control" id="post-count" name="count" value="1" min="1">
+                        <div class="form-text">Number of posts to generate (minimum 1)</div>
                     </div>
                     
                     <div class="mb-3">
@@ -210,8 +210,8 @@
                 <form action="{{ url_for('admin.generate_comment') }}" method="post">
                     <div class="mb-3">
                         <label for="comment-count" class="form-label">Count</label>
-                        <input type="number" class="form-control" id="comment-count" name="count" value="1" min="1" max="50">
-                        <div class="form-text">Number of comments to generate (1-50)</div>
+                        <input type="number" class="form-control" id="comment-count" name="count" value="1" min="1">
+                        <div class="form-text">Number of comments to generate (minimum 1)</div>
                     </div>
                     
                     <div class="mb-3">

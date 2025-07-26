@@ -169,6 +169,10 @@ def send_request(
 
     selected_model = select_model(user_persona)
 
+    # Add /nothink prefix for specific models
+    if any(keyword in selected_model.lower() for keyword in ["qwen", "qwq", "deepseek"]):
+        prompt = "/nothink " + prompt
+
     # Use dynamic temperature based on personality
     if user_personality_traits:
         temperature = get_dynamic_temperature(user_personality_traits, content_type)
