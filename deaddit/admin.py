@@ -480,6 +480,15 @@ def jobs():
     job_types = [jt.value for jt in JobType]
     job_statuses = [js.value for js in JobStatus]
 
+    # Get job status counts for quick stats
+    job_counts = {
+        'pending': Job.query.filter_by(status=JobStatus.PENDING).count(),
+        'running': Job.query.filter_by(status=JobStatus.RUNNING).count(), 
+        'completed': Job.query.filter_by(status=JobStatus.COMPLETED).count(),
+        'failed': Job.query.filter_by(status=JobStatus.FAILED).count(),
+        'cancelled': Job.query.filter_by(status=JobStatus.CANCELLED).count(),
+    }
+
     return render_template(
         "admin/jobs.html",
         jobs=jobs_pagination.items,
@@ -488,6 +497,7 @@ def jobs():
         job_statuses=job_statuses,
         current_status=status_filter,
         current_type=type_filter,
+        job_counts=job_counts,
     )
 
 

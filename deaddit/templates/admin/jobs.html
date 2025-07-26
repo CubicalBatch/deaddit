@@ -249,31 +249,31 @@
                     </div>
                     <div class="col-md-2">
                         <div class="text-center">
-                            <div class="h4 text-warning">{{ jobs|selectattr('status.value', 'equalto', 'pending')|list|length }}</div>
+                            <div class="h4 text-warning">{{ job_counts.pending }}</div>
                             <small class="text-muted">Pending</small>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="text-center">
-                            <div class="h4 text-primary">{{ jobs|selectattr('status.value', 'equalto', 'running')|list|length }}</div>
+                            <div class="h4 text-primary">{{ job_counts.running }}</div>
                             <small class="text-muted">Running</small>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="text-center">
-                            <div class="h4 text-success">{{ jobs|selectattr('status.value', 'equalto', 'completed')|list|length }}</div>
+                            <div class="h4 text-success">{{ job_counts.completed }}</div>
                             <small class="text-muted">Completed</small>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="text-center">
-                            <div class="h4 text-danger">{{ jobs|selectattr('status.value', 'equalto', 'failed')|list|length }}</div>
+                            <div class="h4 text-danger">{{ job_counts.failed }}</div>
                             <small class="text-muted">Failed</small>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="text-center">
-                            <div class="h4 text-muted">{{ jobs|selectattr('status.value', 'equalto', 'cancelled')|list|length }}</div>
+                            <div class="h4 text-muted">{{ job_counts.cancelled }}</div>
                             <small class="text-muted">Cancelled</small>
                         </div>
                     </div>
