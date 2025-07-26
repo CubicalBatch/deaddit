@@ -91,6 +91,13 @@ with app.app_context():
         logger.warning(
             "No API_TOKEN set in database or environment. Admin and API routes will be publicly accessible."
         )
+    
+    # Restart any pending jobs after app restart
+    try:
+        from .jobs import restart_pending_jobs
+        restart_pending_jobs()
+    except Exception as e:
+        logger.error(f"Failed to restart pending jobs: {e}")
 
 
 # Error handlers

@@ -3,6 +3,7 @@ import os
 import random
 import re
 import time
+from collections import defaultdict
 from types import SimpleNamespace
 
 import click
@@ -15,6 +16,605 @@ from .config import Config
 MODELS = Config.get("MODELS", "").split(",") if Config.get("MODELS") else [""]
 # Remove empty strings and strip whitespace
 MODELS = [model.strip() for model in MODELS if model.strip()]
+
+# Global cache for post counts per subdeaddit to improve distribution
+_subdeaddit_post_counts = defaultdict(int)
+_subdeaddit_selection_history = []
+
+# Global cache for user activity to improve distribution
+_user_activity_cache = {}
+_user_selection_history = []
+
+
+def get_subdeaddit_post_counts():
+    """
+    Get current post counts for all subdeaddits from the API.
+    
+    Returns:
+        dict: Mapping of subdeaddit names to their post counts
+    """
+    try:
+        response = requests.get(
+            f"{get_api_base_url()}/api/posts?limit=10000", 
+            headers=get_api_headers(),
+            timeout=30
+        )
+        if response.status_code == 200:
+            posts = response.json().get("posts", [])
+            counts = defaultdict(int)
+            for post in posts:
+                counts[post["subdeaddit"]] += 1
+            return dict(counts)
+    except Exception as e:
+        logger.warning(f"Failed to get post counts: {e}")
+    
+    return {}
+
+
+def select_subdeaddit_weighted(subdeaddits):
+    """
+    Select a subdeaddit using weighted distribution that favors subdeaddits with fewer posts.
+    
+    Args:
+        subdeaddits (list): List of subdeaddit dictionaries
+        
+    Returns:
+        dict: Selected subdeaddit
+    """
+    if not subdeaddits:
+        return None
+    
+    if len(subdeaddits) == 1:
+        return subdeaddits[0]
+    
+    # Get current post counts
+    post_counts = get_subdeaddit_post_counts()
+    
+    # Calculate weights (inverse of post count + 1 to avoid division by zero)
+    weights = []
+    subdeaddit_names = [sub["name"] for sub in subdeaddits]
+    
+    # Find max posts to normalize weights
+    max_posts = max([post_counts.get(name, 0) for name in subdeaddit_names]) if post_counts else 0
+    
+    for sub_name in subdeaddit_names:
+        current_posts = post_counts.get(sub_name, 0)
+        # Weight formula: give higher weight to subdeaddits with fewer posts
+        # Add 1 to max_posts to ensure weights are never 0
+        weight = (max_posts + 1) - current_posts
+        weights.append(max(weight, 1))  # Ensure minimum weight of 1
+    
+    # Prevent consecutive selections of the same subdeaddit if there are alternatives
+    if len(_subdeaddit_selection_history) > 0:
+        last_selected = _subdeaddit_selection_history[-1]
+        for i, sub in enumerate(subdeaddits):
+            if sub["name"] == last_selected and len(subdeaddits) > 1:
+                weights[i] = max(1, weights[i] // 3)  # Reduce weight significantly but don't eliminate
+    
+    # Use weighted random selection
+    selected_subdeaddit = random.choices(subdeaddits, weights=weights, k=1)[0]
+    
+    # Update selection history (keep last 5 selections)
+    _subdeaddit_selection_history.append(selected_subdeaddit["name"])
+    if len(_subdeaddit_selection_history) > 5:
+        _subdeaddit_selection_history.pop(0)
+    
+    logger.info(f"Weighted selection: {selected_subdeaddit['name']} (current posts: {post_counts.get(selected_subdeaddit['name'], 0)}, weight: {weights[subdeaddits.index(selected_subdeaddit)]})")
+    
+    return selected_subdeaddit
+
+
+def select_subdeaddit_round_robin(subdeaddits):
+    """
+    Select a subdeaddit using strict round-robin based on current post counts.
+    
+    Args:
+        subdeaddits (list): List of subdeaddit dictionaries
+        
+    Returns:
+        dict: Selected subdeaddit with the lowest post count
+    """
+    if not subdeaddits:
+        return None
+    
+    if len(subdeaddits) == 1:
+        return subdeaddits[0]
+    
+    # Get current post counts
+    post_counts = get_subdeaddit_post_counts()
+    
+    # Find subdeaddit(s) with minimum post count
+    min_posts = min([post_counts.get(sub["name"], 0) for sub in subdeaddits])
+    candidates = [sub for sub in subdeaddits if post_counts.get(sub["name"], 0) == min_posts]
+    
+    # If multiple candidates have the same minimum count, use weighted random among them
+    if len(candidates) > 1:
+        # Avoid consecutive selections from history
+        if len(_subdeaddit_selection_history) > 0:
+            last_selected = _subdeaddit_selection_history[-1]
+            non_recent = [sub for sub in candidates if sub["name"] != last_selected]
+            if non_recent:
+                candidates = non_recent
+        
+        selected = random.choice(candidates)
+    else:
+        selected = candidates[0]
+    
+    # Update selection history
+    _subdeaddit_selection_history.append(selected["name"])
+    if len(_subdeaddit_selection_history) > 5:
+        _subdeaddit_selection_history.pop(0)
+    
+    logger.info(f"Round-robin selection: {selected['name']} (current posts: {post_counts.get(selected['name'], 0)})")
+    
+    return selected
+
+
+def select_subdeaddit_improved_random(subdeaddits):
+    """
+    Select a subdeaddit using improved random selection with better seeding.
+    
+    Args:
+        subdeaddits (list): List of subdeaddit dictionaries
+        
+    Returns:
+        dict: Selected subdeaddit
+    """
+    if not subdeaddits:
+        return None
+    
+    if len(subdeaddits) == 1:
+        return subdeaddits[0]
+    
+    # Use better entropy for random selection
+    import secrets
+    
+    # Avoid consecutive selections if possible
+    available_subs = subdeaddits.copy()
+    if len(_subdeaddit_selection_history) > 0 and len(subdeaddits) > 1:
+        last_selected = _subdeaddit_selection_history[-1]
+        available_subs = [sub for sub in subdeaddits if sub["name"] != last_selected]
+        if not available_subs:  # Fallback if all are filtered out
+            available_subs = subdeaddits
+    
+    # Use secrets module for cryptographically secure randomness
+    selected = secrets.choice(available_subs)
+    
+    # Update selection history
+    _subdeaddit_selection_history.append(selected["name"])
+    if len(_subdeaddit_selection_history) > 5:
+        _subdeaddit_selection_history.pop(0)
+    
+    logger.info(f"Improved random selection: {selected['name']}")
+    
+    return selected
+
+
+def select_subdeaddit_smart(subdeaddits, strategy="weighted"):
+    """
+    Smart subdeaddit selection with configurable strategy.
+    
+    Args:
+        subdeaddits (list): List of subdeaddit dictionaries
+        strategy (str): Selection strategy - "weighted", "round_robin", or "improved_random"
+        
+    Returns:
+        dict: Selected subdeaddit
+    """
+    if not subdeaddits:
+        return None
+    
+    # Get strategy from config if available
+    config_strategy = Config.get("SUBDEADDIT_SELECTION_STRATEGY", strategy)
+    
+    if config_strategy == "round_robin":
+        return select_subdeaddit_round_robin(subdeaddits)
+    elif config_strategy == "improved_random":
+        return select_subdeaddit_improved_random(subdeaddits)
+    else:  # Default to weighted
+        return select_subdeaddit_weighted(subdeaddits)
+
+
+def get_user_activity_counts():
+    """
+    Get current post and comment counts for all users from the API.
+    
+    Returns:
+        dict: Mapping of usernames to their total activity counts (posts + comments)
+    """
+    try:
+        # Get posts
+        posts_response = requests.get(
+            f"{get_api_base_url()}/api/posts?limit=10000", 
+            headers=get_api_headers(),
+            timeout=30
+        )
+        
+        # Get comments
+        comments_response = requests.get(
+            f"{get_api_base_url()}/api/comments?limit=10000", 
+            headers=get_api_headers(),
+            timeout=30
+        )
+        
+        activity_counts = defaultdict(int)
+        
+        # Count posts per user
+        if posts_response.status_code == 200:
+            posts = posts_response.json().get("posts", [])
+            for post in posts:
+                activity_counts[post.get("user", "")] += 1
+        
+        # Count comments per user
+        if comments_response.status_code == 200:
+            comments = comments_response.json().get("comments", [])
+            for comment in comments:
+                activity_counts[comment.get("user", "")] += 1
+                
+        return dict(activity_counts)
+        
+    except Exception as e:
+        logger.warning(f"Failed to get user activity counts: {e}")
+    
+    return {}
+
+
+def select_user_weighted(users):
+    """
+    Select a user using weighted distribution that favors users with fewer posts/comments.
+    
+    Args:
+        users (list): List of user dictionaries
+        
+    Returns:
+        dict: Selected user
+    """
+    if not users:
+        return None
+    
+    if len(users) == 1:
+        return users[0]
+    
+    # Get current activity counts
+    activity_counts = get_user_activity_counts()
+    
+    # Calculate weights (inverse of activity count + 1 to avoid division by zero)
+    weights = []
+    usernames = [user["username"] for user in users]
+    
+    # Find max activity to normalize weights
+    max_activity = max([activity_counts.get(username, 0) for username in usernames]) if activity_counts else 0
+    
+    for username in usernames:
+        current_activity = activity_counts.get(username, 0)
+        # Weight formula: give higher weight to users with fewer posts/comments
+        # Add 1 to max_activity to ensure weights are never 0
+        weight = (max_activity + 1) - current_activity
+        weights.append(max(weight, 1))  # Ensure minimum weight of 1
+    
+    # Prevent consecutive selections of the same user if there are alternatives
+    if len(_user_selection_history) > 0:
+        last_selected = _user_selection_history[-1]
+        for i, user in enumerate(users):
+            if user["username"] == last_selected and len(users) > 1:
+                weights[i] = max(1, weights[i] // 3)  # Reduce weight significantly but don't eliminate
+    
+    # Use weighted random selection
+    selected_user = random.choices(users, weights=weights, k=1)[0]
+    
+    # Update selection history (keep last 5 selections)
+    _user_selection_history.append(selected_user["username"])
+    if len(_user_selection_history) > 5:
+        _user_selection_history.pop(0)
+    
+    logger.info(f"Weighted user selection: {selected_user['username']} (current activity: {activity_counts.get(selected_user['username'], 0)}, weight: {weights[users.index(selected_user)]})")
+    
+    return selected_user
+
+
+def select_user_round_robin(users):
+    """
+    Select a user using strict round-robin based on current activity counts.
+    
+    Args:
+        users (list): List of user dictionaries
+        
+    Returns:
+        dict: Selected user with the lowest activity count
+    """
+    if not users:
+        return None
+    
+    if len(users) == 1:
+        return users[0]
+    
+    # Get current activity counts
+    activity_counts = get_user_activity_counts()
+    
+    # Find user(s) with minimum activity count
+    min_activity = min([activity_counts.get(user["username"], 0) for user in users])
+    candidates = [user for user in users if activity_counts.get(user["username"], 0) == min_activity]
+    
+    # If multiple candidates have the same minimum count, use weighted random among them
+    if len(candidates) > 1:
+        # Avoid consecutive selections from history
+        if len(_user_selection_history) > 0:
+            last_selected = _user_selection_history[-1]
+            non_recent = [user for user in candidates if user["username"] != last_selected]
+            if non_recent:
+                candidates = non_recent
+        
+        selected = random.choice(candidates)
+    else:
+        selected = candidates[0]
+    
+    # Update selection history
+    _user_selection_history.append(selected["username"])
+    if len(_user_selection_history) > 5:
+        _user_selection_history.pop(0)
+    
+    logger.info(f"Round-robin user selection: {selected['username']} (current activity: {activity_counts.get(selected['username'], 0)})")
+    
+    return selected
+
+
+def select_user_improved_random(users):
+    """
+    Select a user using improved random selection with better seeding.
+    
+    Args:
+        users (list): List of user dictionaries
+        
+    Returns:
+        dict: Selected user
+    """
+    if not users:
+        return None
+    
+    if len(users) == 1:
+        return users[0]
+    
+    # Use better entropy for random selection
+    import secrets
+    
+    # Avoid consecutive selections if possible
+    available_users = users.copy()
+    if len(_user_selection_history) > 0 and len(users) > 1:
+        last_selected = _user_selection_history[-1]
+        available_users = [user for user in users if user["username"] != last_selected]
+        if not available_users:  # Fallback if all are filtered out
+            available_users = users
+    
+    # Use secrets module for cryptographically secure randomness
+    selected = secrets.choice(available_users)
+    
+    # Update selection history
+    _user_selection_history.append(selected["username"])
+    if len(_user_selection_history) > 5:
+        _user_selection_history.pop(0)
+    
+    logger.info(f"Improved random user selection: {selected['username']}")
+    
+    return selected
+
+
+def select_user_smart(users, strategy="weighted"):
+    """
+    Smart user selection with configurable strategy.
+    
+    Args:
+        users (list): List of user dictionaries
+        strategy (str): Selection strategy - "weighted", "round_robin", or "improved_random"
+        
+    Returns:
+        dict: Selected user
+    """
+    if not users:
+        return None
+    
+    # Get strategy from config if available
+    config_strategy = Config.get("USER_SELECTION_STRATEGY", strategy)
+    
+    if config_strategy == "round_robin":
+        return select_user_round_robin(users)
+    elif config_strategy == "improved_random":
+        return select_user_improved_random(users)
+    else:  # Default to weighted
+        return select_user_weighted(users)
+
+
+def test_subdeaddit_distribution(num_tests=100, strategy="weighted"):
+    """
+    Test subdeaddit selection distribution to verify randomization improvements.
+    
+    Args:
+        num_tests (int): Number of selections to test
+        strategy (str): Selection strategy to test
+        
+    Returns:
+        dict: Distribution results and statistics
+    """
+    logger.info(f"Testing subdeaddit distribution with {num_tests} selections using {strategy} strategy")
+    
+    # Get subdeaddits from API
+    try:
+        response = requests.get(
+            f"{get_api_base_url()}/api/subdeaddits", headers=get_api_headers()
+        )
+        if response.status_code != 200:
+            logger.error("Failed to retrieve subdeaddits for testing")
+            return None
+        
+        subs = response.json()["subdeaddits"]
+        if not subs:
+            logger.error("No subdeaddits found for testing")
+            return None
+        
+        logger.info(f"Testing with {len(subs)} subdeaddits")
+        
+        # Reset selection history for clean test
+        global _subdeaddit_selection_history
+        _subdeaddit_selection_history.clear()
+        
+        # Run selections
+        selection_counts = defaultdict(int)
+        selections = []
+        
+        for i in range(num_tests):
+            if strategy == "round_robin":
+                selected = select_subdeaddit_round_robin(subs)
+            elif strategy == "improved_random":
+                selected = select_subdeaddit_improved_random(subs)
+            else:  # weighted
+                selected = select_subdeaddit_weighted(subs)
+            
+            if selected:
+                sub_name = selected["name"]
+                selection_counts[sub_name] += 1
+                selections.append(sub_name)
+        
+        # Calculate statistics
+        total_selections = sum(selection_counts.values())
+        expected_per_sub = total_selections / len(subs)
+        
+        results = {
+            "strategy": strategy,
+            "total_selections": total_selections,
+            "num_subdeaddits": len(subs),
+            "expected_per_sub": expected_per_sub,
+            "selection_counts": dict(selection_counts),
+            "selections": selections,
+        }
+        
+        # Calculate variance and standard deviation
+        variances = []
+        for sub in subs:
+            actual_count = selection_counts[sub["name"]]
+            variance = (actual_count - expected_per_sub) ** 2
+            variances.append(variance)
+        
+        results["variance"] = sum(variances) / len(variances)
+        results["std_deviation"] = results["variance"] ** 0.5
+        
+        # Calculate distribution quality metrics
+        min_count = min(selection_counts.values()) if selection_counts else 0
+        max_count = max(selection_counts.values()) if selection_counts else 0
+        results["min_selections"] = min_count
+        results["max_selections"] = max_count
+        results["range"] = max_count - min_count
+        results["range_ratio"] = max_count / min_count if min_count > 0 else float('inf')
+        
+        # Count subdeaddits with zero selections
+        results["zero_selections"] = len(subs) - len(selection_counts)
+        
+        logger.info(f"Distribution test results for {strategy}:")
+        logger.info(f"  - Range: {min_count} to {max_count} (ratio: {results['range_ratio']:.2f})")
+        logger.info(f"  - Standard deviation: {results['std_deviation']:.2f}")
+        logger.info(f"  - Subdeaddits with zero selections: {results['zero_selections']}")
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error testing subdeaddit distribution: {e}")
+        return None
+
+
+def test_user_distribution(num_tests=100, strategy="weighted"):
+    """
+    Test user selection distribution to verify randomization improvements.
+    
+    Args:
+        num_tests (int): Number of selections to test
+        strategy (str): Selection strategy to test
+        
+    Returns:
+        dict: Distribution results and statistics
+    """
+    logger.info(f"Testing user distribution with {num_tests} selections using {strategy} strategy")
+    
+    # Get users from API
+    try:
+        response = requests.get(
+            f"{get_api_base_url()}/api/users", headers=get_api_headers()
+        )
+        if response.status_code != 200:
+            logger.error("Failed to retrieve users for testing")
+            return None
+        
+        users = response.json()["users"]
+        if not users:
+            logger.error("No users found for testing")
+            return None
+        
+        logger.info(f"Testing with {len(users)} users")
+        
+        # Reset selection history for clean test
+        global _user_selection_history
+        _user_selection_history.clear()
+        
+        # Run selections
+        selection_counts = defaultdict(int)
+        selections = []
+        
+        for i in range(num_tests):
+            if strategy == "round_robin":
+                selected = select_user_round_robin(users)
+            elif strategy == "improved_random":
+                selected = select_user_improved_random(users)
+            elif strategy == "random":
+                selected = random.choice(users)
+            else:  # weighted
+                selected = select_user_weighted(users)
+            
+            if selected:
+                username = selected["username"]
+                selection_counts[username] += 1
+                selections.append(username)
+        
+        # Calculate statistics
+        total_selections = sum(selection_counts.values())
+        expected_per_user = total_selections / len(users)
+        
+        results = {
+            "strategy": strategy,
+            "total_selections": total_selections,
+            "num_users": len(users),
+            "expected_per_user": expected_per_user,
+            "selection_counts": dict(selection_counts),
+            "selections": selections,
+        }
+        
+        # Calculate variance and standard deviation
+        variances = []
+        for user in users:
+            actual_count = selection_counts[user["username"]]
+            variance = (actual_count - expected_per_user) ** 2
+            variances.append(variance)
+        
+        results["variance"] = sum(variances) / len(variances)
+        results["std_deviation"] = results["variance"] ** 0.5
+        
+        # Calculate distribution quality metrics
+        min_count = min(selection_counts.values()) if selection_counts else 0
+        max_count = max(selection_counts.values()) if selection_counts else 0
+        results["min_selections"] = min_count
+        results["max_selections"] = max_count
+        results["range"] = max_count - min_count
+        results["range_ratio"] = max_count / min_count if min_count > 0 else float('inf')
+        
+        # Count users with zero selections
+        results["zero_selections"] = len(users) - len(selection_counts)
+        
+        logger.info(f"Distribution test results for {strategy}:")
+        logger.info(f"  - Range: {min_count} to {max_count} (ratio: {results['range_ratio']:.2f})")
+        logger.info(f"  - Standard deviation: {results['std_deviation']:.2f}")
+        logger.info(f"  - Users with zero selections: {results['zero_selections']}")
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error testing user distribution: {e}")
+        return None
 
 
 def get_api_base_url():
@@ -467,7 +1067,16 @@ def ingest(data: dict, type: str) -> requests.Response:
         return None
 
 
-def get_random_user():
+def get_random_user(strategy="weighted"):
+    """
+    Get a user using smart selection that favors users with less activity.
+    
+    Args:
+        strategy (str): Selection strategy - "weighted", "round_robin", "improved_random", or "random"
+        
+    Returns:
+        dict: Selected user or None if error
+    """
     try:
         response = requests.get(
             f"{get_api_base_url()}/api/users", headers=get_api_headers(), timeout=30
@@ -487,9 +1096,24 @@ def get_random_user():
             return None
 
         users = data["users"]
-        randomly_selected_user = random.choice(users)
-        logger.info(f"Randomly selected user: {randomly_selected_user['username']}")
-        return randomly_selected_user
+        
+        # Use old random selection if explicitly requested
+        if strategy == "random":
+            randomly_selected_user = random.choice(users)
+            logger.info(f"Randomly selected user: {randomly_selected_user['username']}")
+            return randomly_selected_user
+        
+        # Use smart weighted selection by default
+        selected_user = select_user_smart(users, strategy)
+        if selected_user:
+            return selected_user
+        else:
+            # Fallback to simple random if smart selection fails
+            logger.warning("Smart user selection failed, falling back to random selection")
+            randomly_selected_user = random.choice(users)
+            logger.info(f"Fallback randomly selected user: {randomly_selected_user['username']}")
+            return randomly_selected_user
+            
     except requests.RequestException as e:
         logger.error(f"Error retrieving users: {str(e)}")
         return None
@@ -836,8 +1460,11 @@ def create_post(subdeaddit_name: str = "") -> dict:
     subs = response.json()["subdeaddits"]
 
     if subdeaddit_name == "" or subdeaddit_name is None:
-        subdeaddit = random.choice(subs)
-        logger.info(f"Randomly selected subdeaddit: {subdeaddit['name']}")
+        subdeaddit = select_subdeaddit_smart(subs, strategy="weighted")
+        if subdeaddit is None:
+            logger.error("Failed to select a subdeaddit")
+            return None
+        logger.info(f"Smart selected subdeaddit: {subdeaddit['name']}")
     else:
         subdeaddit = next((sub for sub in subs if sub["name"] == subdeaddit_name), None)
         logger.info(f"Selected subdeaddit: {subdeaddit['name']}")
@@ -2520,6 +3147,32 @@ def loop(ctx, count, wait):
         if i < count - 1 and wait > 0:
             logger.info(f"Waiting for {wait} seconds before the next iteration...")
             time.sleep(wait)
+
+
+@cli.command()
+@click.option("--tests", type=int, default=100, help="Number of test selections to run")
+@click.option("--strategy", default="weighted", help="Strategy to test: weighted, round_robin, improved_random, or random")
+def test_user_dist(tests, strategy):
+    """Test user selection distribution"""
+    logger.info(f"Testing user distribution with {tests} selections using {strategy} strategy")
+    results = test_user_distribution(tests, strategy)
+    if results:
+        logger.info("Test completed successfully. Check logs for detailed results.")
+    else:
+        logger.error("Test failed")
+
+
+@cli.command()
+@click.option("--tests", type=int, default=100, help="Number of test selections to run")
+@click.option("--strategy", default="weighted", help="Strategy to test: weighted, round_robin, improved_random")
+def test_sub_dist(tests, strategy):
+    """Test subdeaddit selection distribution"""
+    logger.info(f"Testing subdeaddit distribution with {tests} selections using {strategy} strategy")
+    results = test_subdeaddit_distribution(tests, strategy)
+    if results:
+        logger.info("Test completed successfully. Check logs for detailed results.")
+    else:
+        logger.error("Test failed")
 
 
 if __name__ == "__main__":

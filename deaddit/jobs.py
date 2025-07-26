@@ -30,7 +30,7 @@ executors = {
 job_defaults = {
     "coalesce": False,
     "max_instances": 1,
-    "misfire_grace_time": 300,  # 5 minutes
+    "misfire_grace_time": 86400,  # 24 hours
 }
 
 # Global scheduler instance
@@ -824,12 +824,44 @@ def _generate_post_data(
 
     from deaddit.models import Subdeaddit, User
 
-    # Get a random user to be the author
-    users = User.query.limit(10).all()
+    # Get users for weighted selection
+    users = User.query.all()  # Get all users instead of limiting to 10
     if not users:
         raise Exception("No users available to create posts")
 
-    author = random.choice(users)
+    # Convert User objects to dictionaries for the weighted selection function
+    user_dicts = []
+    for user in users:
+        user_dicts.append({
+            "username": user.username,
+            "age": user.age,
+            "gender": user.gender,
+            "occupation": user.occupation,
+            "education": user.education,
+            "bio": user.bio,
+            "writing_style": user.writing_style,
+            "interests": user.get_interests() if hasattr(user, "get_interests") else [],
+            "personality_traits": user.get_personality_traits() if hasattr(user, "get_personality_traits") else [],
+        })
+
+    # Use weighted selection to favor users with less activity
+    # Strategy can be configured via USER_SELECTION_STRATEGY config setting:
+    # "weighted" (default) - favors users with fewer posts/comments
+    # "round_robin" - always picks user with lowest activity count
+    # "improved_random" - better randomness with history avoidance
+    from .loader import select_user_smart
+    selected_user_dict = select_user_smart(user_dicts, strategy="weighted")
+    
+    if not selected_user_dict:
+        # Fallback to random selection if weighted selection fails
+        logger.warning("Weighted user selection failed, falling back to random selection")
+        author = random.choice(users)
+    else:
+        # Find the actual User object that matches the selected username
+        author = next((u for u in users if u.username == selected_user_dict["username"]), None)
+        if not author:
+            logger.warning(f"Could not find user object for {selected_user_dict['username']}, falling back to random")
+            author = random.choice(users)
 
     # Get subdeaddit info
     if subdeaddit_name:
@@ -928,12 +960,44 @@ def _generate_comment_data(
 
     from deaddit.models import Post, Subdeaddit, User
 
-    # Get a random user to be the commenter
-    users = User.query.limit(10).all()
+    # Get users for weighted selection
+    users = User.query.all()  # Get all users instead of limiting to 10
     if not users:
         raise Exception("No users available to create comments")
 
-    author = random.choice(users)
+    # Convert User objects to dictionaries for the weighted selection function
+    user_dicts = []
+    for user in users:
+        user_dicts.append({
+            "username": user.username,
+            "age": user.age,
+            "gender": user.gender,
+            "occupation": user.occupation,
+            "education": user.education,
+            "bio": user.bio,
+            "writing_style": user.writing_style,
+            "interests": user.get_interests() if hasattr(user, "get_interests") else [],
+            "personality_traits": user.get_personality_traits() if hasattr(user, "get_personality_traits") else [],
+        })
+
+    # Use weighted selection to favor users with less activity
+    # Strategy can be configured via USER_SELECTION_STRATEGY config setting:
+    # "weighted" (default) - favors users with fewer posts/comments
+    # "round_robin" - always picks user with lowest activity count
+    # "improved_random" - better randomness with history avoidance
+    from .loader import select_user_smart
+    selected_user_dict = select_user_smart(user_dicts, strategy="weighted")
+    
+    if not selected_user_dict:
+        # Fallback to random selection if weighted selection fails
+        logger.warning("Weighted user selection failed, falling back to random selection")
+        author = random.choice(users)
+    else:
+        # Find the actual User object that matches the selected username
+        author = next((u for u in users if u.username == selected_user_dict["username"]), None)
+        if not author:
+            logger.warning(f"Could not find user object for {selected_user_dict['username']}, falling back to random")
+            author = random.choice(users)
 
     # Get post to comment on
     if post_id:
@@ -1551,6 +1615,49 @@ def _parse_cron_kwargs(cron_expression: str) -> dict[str, Any]:
         kwargs["day_of_week"] = day_of_week
 
     return kwargs
+
+
+def restart_pending_jobs():
+    """Restart any jobs that were pending when the app was shut down."""
+    from deaddit.models import Job, JobStatus
+    
+    # Find all pending jobs in the database
+    pending_jobs = Job.query.filter_by(status=JobStatus.PENDING).all()
+    
+    if not pending_jobs:
+        logger.info("No pending jobs to restart")
+        return
+    
+    logger.info(f"Restarting {len(pending_jobs)} pending jobs")
+    
+    # Start scheduler if not running
+    start_scheduler()
+    
+    for job in pending_jobs:
+        try:
+            # Select executor based on priority
+            if job.priority >= 8:
+                executor = "high_priority"
+            elif job.priority <= 3:
+                executor = "low_priority"
+            else:
+                executor = "default"
+            
+            # Re-schedule the job to run immediately
+            scheduler.add_job(
+                execute_job,
+                "date",
+                run_date=datetime.now(),
+                args=[job.id],
+                id=job.rq_job_id,
+                executor=executor,
+                replace_existing=True,
+            )
+            
+            logger.info(f"Restarted job {job.id} ({job.type.value})")
+            
+        except Exception as e:
+            logger.error(f"Failed to restart job {job.id}: {e}")
 
 
 def get_scheduler_info() -> dict[str, Any]:
