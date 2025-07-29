@@ -166,3 +166,7 @@ personal/
 .ruff_cache/
 CLAUDE.md
 building/
+*.db
+gunicorn.conf.py
+wsgi.py
+
