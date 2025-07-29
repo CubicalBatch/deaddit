@@ -870,7 +870,7 @@ def _generate_post_data(
             raise Exception(f"Subdeaddit '{subdeaddit_name}' not found")
     else:
         # Pick a random subdeaddit
-        subdeaddits = Subdeaddit.query.limit(10).all()
+        subdeaddits = Subdeaddit.query.all()
         if not subdeaddits:
             raise Exception("No subdeaddits available to create posts in")
         subdeaddit = random.choice(subdeaddits)
@@ -1010,9 +1010,9 @@ def _generate_comment_data(
             subdeaddit = Subdeaddit.query.filter_by(name=subdeaddit_name).first()
             if not subdeaddit:
                 raise Exception(f"Subdeaddit '{subdeaddit_name}' not found")
-            posts = Post.query.filter_by(subdeaddit=subdeaddit).limit(10).all()
+            posts = Post.query.filter_by(subdeaddit=subdeaddit).all()
         else:
-            posts = Post.query.limit(10).all()
+            posts = Post.query.all()
 
         if not posts:
             raise Exception("No posts available to comment on")
